@@ -84,23 +84,43 @@ def load_index():
     if not files:
         return None
 
-    with st.spinner("📚 Loading & indexing documents... Please wait..."):
-        # Use existing index if available
-        if os.path.exists(PERSIST_DIR):
-            try:
+    # Use existing index if available
+    if os.path.exists(PERSIST_DIR):
+        try:
+            with st.spinner("📚 Loading existing index..."):
                 storage_context = StorageContext.from_defaults(persist_dir=PERSIST_DIR)
                 index = load_index_from_storage(storage_context)
+                st.success("✅ Index loaded successfully!")
                 return index
-            except:
-                pass
+        except:
+            pass
 
-        # Fresh indexing
-        documents = SimpleDirectoryReader(DATA_DIR).load_data()
-        index = VectorStoreIndex.from_documents(documents)
-
-        # Persist
-        index.storage_context.persist(persist_dir=PERSIST_DIR)
-        return index
+    # Fresh indexing with progress bar
+    st.info(f"📄 Found {len(files)} file(s) to index...")
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
+    # Step 1: Load documents
+    status_text.text("Step 1/3: Reading documents...")
+    progress_bar.progress(33)
+    documents = SimpleDirectoryReader(DATA_DIR).load_data()
+    
+    # Step 2: Create index
+    status_text.text(f"Step 2/3: Creating embeddings for {len(documents)} document(s)...")
+    progress_bar.progress(66)
+    index = VectorStoreIndex.from_documents(documents)
+    
+    # Step 3: Persist
+    status_text.text("Step 3/3: Saving index...")
+    progress_bar.progress(100)
+    index.storage_context.persist(persist_dir=PERSIST_DIR)
+    
+    # Clear progress indicators
+    progress_bar.empty()
+    status_text.empty()
+    st.success("✅ Indexing complete! You can now chat with your documents.")
+    
+    return index
 
 
 # Initialize Index
