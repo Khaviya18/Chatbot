@@ -60,6 +60,7 @@ NEEDS_INSTALL=false
 if [ ! -d "venv" ]; then
     echo "Creating virtual environment using $PYTHON_CMD..."
     $PYTHON_CMD -m venv venv
+    source venv/bin/activate
     NEEDS_INSTALL=true
 else
     # Check if existing venv uses a compatible Python version
