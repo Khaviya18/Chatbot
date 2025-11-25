@@ -121,8 +121,8 @@ def get_settings(model_type, _api_key=None):
             st.stop()
         # Configure the genai library
         genai.configure(api_key=_api_key)
-        # Use Gemini with the correct model name for free tier
-        llm = Gemini(model_name="models/gemini-pro", api_key=_api_key)
+        # Use Gemini 2.5 Flash - the current stable model
+        llm = Gemini(model_name="models/gemini-2.5-flash", api_key=_api_key)
 
     Settings.llm = llm
     Settings.embed_model = embed_model
