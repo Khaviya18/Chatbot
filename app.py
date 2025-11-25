@@ -67,7 +67,7 @@ with st.sidebar:
     if model_choice == "🏠 Local (Ollama)":
         st.info(f"**LLM:** Ollama ({OLLAMA_MODEL})")
     else:
-        st.info(f"**LLM:** Gemini (gemini-1.5-flash)")
+        st.info(f"**LLM:** Gemini (gemini-2.5-flash)")
     
     st.info(f"**Embeddings:** {EMBED_MODEL}")
     
