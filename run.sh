@@ -1,32 +1,69 @@
 #!/bin/bash
 
-# Check Python version
-python_version=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-major_ver=$(echo $python_version | cut -d. -f1)
-minor_ver=$(echo $python_version | cut -d. -f2)
+# Function to check if a python command is a suitable version (3.9 - 3.12)
+check_python_version() {
+    local cmd=$1
+    if command -v "$cmd" &> /dev/null; then
+        local version
+        version=$($cmd -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+        local major
+        major=$(echo "$version" | cut -d. -f1)
+        local minor
+        minor=$(echo "$version" | cut -d. -f2)
+        
+        if [ "$major" -eq 3 ] && [ "$minor" -ge 9 ] && [ "$minor" -le 12 ]; then
+            echo "$cmd"
+            return 0
+        fi
+    fi
+    return 1
+}
 
-if [ "$major_ver" -eq 3 ] && [ "$minor_ver" -ge 13 ]; then
-    echo "WARNING: You are using Python $python_version. This is a very new version."
-    echo "Many libraries (like pyarrow) may not have pre-built binaries for it yet."
-    echo "If installation fails, please try using Python 3.10, 3.11, or 3.12."
-    echo "You can install a specific version with brew: brew install python@3.11"
-    echo "Then recreate the venv: rm -rf venv && python3.11 -m venv venv"
-    echo "----------------------------------------------------------------"
-    sleep 3
+# 1. Search for a specific suitable python version
+echo "Searching for a suitable Python version (3.9 - 3.12)..."
+PYTHON_CMD=""
+
+# Check specific binaries first
+for ver in 3.12 3.11 3.10 3.9; do
+    if command -v "python$ver" &> /dev/null; then
+        PYTHON_CMD="python$ver"
+        echo "Found specific version: $PYTHON_CMD"
+        break
+    fi
+done
+
+# If not found, check 'python3'
+if [ -z "$PYTHON_CMD" ]; then
+    if check_python_version "python3" > /dev/null; then
+        PYTHON_CMD="python3"
+        echo "Found suitable default: $PYTHON_CMD"
+    fi
 fi
 
-# Check if venv exists
+# 2. Handle case where no suitable version is found
+if [ -z "$PYTHON_CMD" ]; then
+    echo "----------------------------------------------------------------"
+    echo "ERROR: No suitable Python version found (3.9 - 3.12)."
+    echo "Your default 'python3' might be too new (e.g., 3.13+) or too old."
+    echo ""
+    echo "Please install a stable version using Homebrew:"
+    echo "  brew install python@3.11"
+    echo ""
+    echo "After installing, run this script again."
+    echo "----------------------------------------------------------------"
+    exit 1
+fi
+
+# 3. Create/Activate Virtual Environment
 if [ ! -d "venv" ]; then
-    echo "Creating virtual environment..."
-    # Try to find a suitable python if default is too new? 
-    # For now, just use python3 but we warned them.
-    python3 -m venv venv
+    echo "Creating virtual environment using $PYTHON_CMD..."
+    $PYTHON_CMD -m venv venv
     source venv/bin/activate
     
-    # Check for cmake (often needed for building pyarrow/other libs from source)
+    # Check for cmake (helpful warning)
     if ! command -v cmake &> /dev/null; then
-        echo "Error: cmake is not installed but might be required for building dependencies."
-        echo "Please install it (e.g., 'brew install cmake' on macOS) and try again."
+        echo "Warning: 'cmake' not found. Some packages might fail to build."
+        echo "If installation fails, run: brew install cmake"
     fi
 
     echo "Installing dependencies..."
@@ -35,8 +72,9 @@ else
     source venv/bin/activate
 fi
 
-# Run the app
+# 4. Run the App
 if command -v streamlit &> /dev/null; then
+    echo "Starting application..."
     streamlit run app.py
 else
     echo "Error: streamlit command not found. Installation might have failed."
