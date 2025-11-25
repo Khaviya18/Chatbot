@@ -9,7 +9,7 @@ from llama_index.core import (
     load_index_from_storage
 )
 from llama_index.llms.ollama import Ollama
-from llama_index.llms.gemini import Gemini
+from llama_index.llms.google_genai import GoogleGenAI
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 # --- Configuration ---
@@ -118,7 +118,7 @@ def get_settings(model_type, _api_key=None):
         if not _api_key:
             st.error("Please provide a Gemini API key in the sidebar.")
             st.stop()
-        llm = Gemini(model="gemini-pro", api_key=_api_key)
+        llm = GoogleGenAI(model="gemini-pro", api_key=_api_key)
 
     Settings.llm = llm
     Settings.embed_model = embed_model
