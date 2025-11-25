@@ -55,11 +55,33 @@ if [ -z "$PYTHON_CMD" ]; then
 fi
 
 # 3. Create/Activate Virtual Environment
+NEEDS_INSTALL=false
+
 if [ ! -d "venv" ]; then
     echo "Creating virtual environment using $PYTHON_CMD..."
     $PYTHON_CMD -m venv venv
+    NEEDS_INSTALL=true
+else
+    # Check if existing venv uses a compatible Python version
     source venv/bin/activate
+    venv_version=$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || echo "0.0")
+    venv_major=$(echo "$venv_version" | cut -d. -f1)
+    venv_minor=$(echo "$venv_version" | cut -d. -f2)
     
+    if [ "$venv_major" -eq 3 ] && [ "$venv_minor" -ge 9 ] && [ "$venv_minor" -le 12 ]; then
+        echo "Using existing virtual environment (Python $venv_version)..."
+    else
+        echo "Existing venv uses incompatible Python $venv_version. Recreating..."
+        deactivate 2>/dev/null || true
+        rm -rf venv
+        $PYTHON_CMD -m venv venv
+        source venv/bin/activate
+        NEEDS_INSTALL=true
+    fi
+fi
+
+# Install dependencies if needed
+if [ "$NEEDS_INSTALL" = true ]; then
     # Check for cmake (helpful warning)
     if ! command -v cmake &> /dev/null; then
         echo "Warning: 'cmake' not found. Some packages might fail to build."
@@ -68,8 +90,6 @@ if [ ! -d "venv" ]; then
 
     echo "Installing dependencies..."
     pip install -r requirements.txt
-else
-    source venv/bin/activate
 fi
 
 # 4. Run the App
