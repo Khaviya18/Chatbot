@@ -9,16 +9,66 @@ from llama_index.core import (
     load_index_from_storage
 )
 from llama_index.llms.ollama import Ollama
+from llama_index.llms.gemini import Gemini
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 
 # --- Configuration ---
 DATA_DIR = "./data"
 PERSIST_DIR = "./storage"
-LLM_MODEL = "llama3.2:1b"
+OLLAMA_MODEL = "llama3.2:1b"
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 st.set_page_config(page_title="Local RAG Chatbot", layout="wide")
-st.title("🤖 Local Document Chatbot")
+st.title("🤖 Document Chatbot")
+
+# ----------------------- SIDEBAR SETTINGS ------------------------------------ #
+with st.sidebar:
+    st.header("⚙️ Model Selection")
+    
+    # Model choice
+    model_choice = st.radio(
+        "Choose your LLM:",
+        ["🏠 Local (Ollama)", "🌐 Gemini (Cloud)"],
+        key="model_choice"
+    )
+    
+    # API Key input for Gemini
+    if model_choice == "🌐 Gemini (Cloud)":
+        api_key = st.text_input(
+            "Enter Gemini API Key:",
+            type="password",
+            help="Get your API key from https://aistudio.google.com/apikey"
+        )
+        if api_key:
+            st.session_state["gemini_api_key"] = api_key
+            st.success("✅ API Key saved!")
+        else:
+            st.warning("⚠️ Please enter your Gemini API key to continue.")
+    
+    st.divider()
+    st.subheader("📊 Current Settings")
+    
+    if model_choice == "🏠 Local (Ollama)":
+        st.info(f"**LLM:** Ollama ({OLLAMA_MODEL})")
+    else:
+        st.info(f"**LLM:** Gemini (gemini-1.5-flash)")
+    
+    st.info(f"**Embeddings:** {EMBED_MODEL}")
+    
+    st.divider()
+
+    if st.button("🔄 Refresh / Re-index Knowledge Base"):
+        # Clear cached index
+        if "index" in st.session_state:
+            del st.session_state["index"]
+
+        # Delete old storage
+        if os.path.exists(PERSIST_DIR):
+            shutil.rmtree(PERSIST_DIR)
+
+        # Set flag to show indexing is in progress
+        st.session_state["indexing"] = True
+        st.rerun()
 
 # ---------------------- FRONTEND FILE UPLOAD -------------------------------- #
 st.subheader("📂 Upload Documents")
@@ -41,39 +91,28 @@ if uploaded_files:
     st.info("Click **Re-index Knowledge Base** on the left to update the chatbot.")
 
 
-# ----------------------- SIDEBAR SETTINGS ------------------------------------ #
-with st.sidebar:
-    st.header("Settings")
-    st.info(f"LLM: **{LLM_MODEL}**")
-    st.info(f"Embeddings: **{EMBED_MODEL}**")
-
-    if st.button("🔄 Refresh / Re-index Knowledge Base"):
-        # Clear cached index
-        if "index" in st.session_state:
-            del st.session_state["index"]
-
-        # Delete old storage
-        if os.path.exists(PERSIST_DIR):
-            shutil.rmtree(PERSIST_DIR)
-
-        # Set flag to show indexing is in progress
-        st.session_state["indexing"] = True
-        st.rerun()
-
-
-
 # ---------------------- LlamaIndex Settings ---------------------------------- #
 @st.cache_resource
-def get_settings():
-    llm = Ollama(model=LLM_MODEL, request_timeout=300.0)
+def get_settings(model_type, _api_key=None):
+    """Initialize LLM and embeddings based on user choice"""
     embed_model = HuggingFaceEmbedding(model_name=EMBED_MODEL)
+    
+    if model_type == "🏠 Local (Ollama)":
+        llm = Ollama(model=OLLAMA_MODEL, request_timeout=300.0)
+    else:  # Gemini
+        if not _api_key:
+            st.error("Please provide a Gemini API key in the sidebar.")
+            st.stop()
+        llm = Gemini(model="models/gemini-1.5-flash", api_key=_api_key)
 
     Settings.llm = llm
     Settings.embed_model = embed_model
     return llm, embed_model
 
-
-llm, embed_model = get_settings()
+llm, embed_model = get_settings(
+    model_choice, 
+    st.session_state.get("gemini_api_key")
+)
 
 
 # ------------------------- Load or Create Index ------------------------------ #

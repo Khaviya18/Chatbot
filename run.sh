@@ -93,47 +93,39 @@ if [ "$NEEDS_INSTALL" = true ]; then
     pip install -r requirements.txt
 fi
 
-# 4. Check for Ollama and Required Model
+# 4. Check for Ollama and Required Model (Optional - can use Gemini instead)
 echo ""
-echo "Checking for Ollama and required model..."
+echo "Checking for Ollama (optional - you can use Gemini instead)..."
 
 if ! command -v ollama &> /dev/null; then
-    echo "----------------------------------------------------------------"
-    echo "ERROR: Ollama is not installed."
-    echo "This application requires Ollama to run the local LLM."
+    echo "⚠️  Ollama is not installed."
+    echo "You can either:"
+    echo "  1. Install Ollama for local LLM: brew install ollama"
+    echo "  2. Use Gemini (cloud) by selecting it in the app and providing an API key"
     echo ""
-    echo "To install Ollama:"
-    echo "  1. Visit: https://ollama.ai/download"
-    echo "  2. Or use Homebrew: brew install ollama"
-    echo ""
-    echo "After installing, run this script again."
-    echo "----------------------------------------------------------------"
-    exit 1
-fi
-
-# Check if Ollama service is running and start if needed
-if ! pgrep -x "ollama" > /dev/null; then
-    echo "Starting Ollama service..."
-    ollama serve > /dev/null 2>&1 &
-    sleep 3
-fi
-
-# Check if the required model is available
-REQUIRED_MODEL="llama3.2:1b"
-if ! ollama list | grep -q "$REQUIRED_MODEL"; then
-    echo "----------------------------------------------------------------"
-    echo "Model '$REQUIRED_MODEL' not found."
-    echo "Downloading model (this may take a few minutes)..."
-    echo "----------------------------------------------------------------"
-    ollama pull "$REQUIRED_MODEL"
-    
-    if [ $? -ne 0 ]; then
-        echo "Failed to download model. Please check your internet connection."
-        exit 1
-    fi
-    echo "Model downloaded successfully!"
 else
-    echo "✓ Ollama is ready with model: $REQUIRED_MODEL"
+    # Check if Ollama service is running and start if needed
+    if ! pgrep -x "ollama" > /dev/null; then
+        echo "Starting Ollama service..."
+        ollama serve > /dev/null 2>&1 &
+        sleep 3
+    fi
+
+    # Check if the required model is available
+    REQUIRED_MODEL="llama3.2:1b"
+    if ! ollama list | grep -q "$REQUIRED_MODEL"; then
+        echo "Model '$REQUIRED_MODEL' not found."
+        echo "Downloading model (this may take a few minutes)..."
+        ollama pull "$REQUIRED_MODEL"
+        
+        if [ $? -eq 0 ]; then
+            echo "✅ Model downloaded successfully!"
+        else
+            echo "⚠️  Failed to download model. You can use Gemini instead."
+        fi
+    else
+        echo "✓ Ollama is ready with model: $REQUIRED_MODEL"
+    fi
 fi
 
 # Cleanup function to remove uploaded data when script exits
