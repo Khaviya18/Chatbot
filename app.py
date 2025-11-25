@@ -110,20 +110,21 @@ if "index" not in st.session_state:
 index = st.session_state["index"]
 
 # ----------------------------- Chat Interface -------------------------------- #
+st.subheader("💬 Chat with Your Documents")
+
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Show conversation
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+# Input from user
 if index is None:
-    st.warning("⚠️ No documents indexed. Upload files and click 'Re-index'.")
+    st.chat_input("Upload documents first to start chatting...", disabled=True)
+    st.info("👆 Upload some documents and click 'Re-index' to start chatting!")
 else:
-    st.subheader("💬 Chat with Your Documents")
-    
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-    # Show conversation
-    for msg in st.session_state.messages:
-        with st.chat_message(msg["role"]):
-            st.markdown(msg["content"])
-
-    # Input from user
     if prompt := st.chat_input("Ask something from your documents..."):
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
@@ -159,4 +160,5 @@ else:
 
                 except Exception as e:
                     st.error(f"Error: {e}")
+
 
