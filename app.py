@@ -9,8 +9,9 @@ from llama_index.core import (
     load_index_from_storage
 )
 from llama_index.llms.ollama import Ollama
-from llama_index.llms.google_genai import GoogleGenAI
+from llama_index.llms.gemini import Gemini
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+import google.generativeai as genai
 
 # --- Configuration ---
 DATA_DIR = "./data"
@@ -118,7 +119,10 @@ def get_settings(model_type, _api_key=None):
         if not _api_key:
             st.error("Please provide a Gemini API key in the sidebar.")
             st.stop()
-        llm = GoogleGenAI(model="gemini-1.5-flash", api_key=_api_key)
+        # Configure the genai library
+        genai.configure(api_key=_api_key)
+        # Use Gemini with the correct model name
+        llm = Gemini(model_name="models/gemini-1.5-flash", api_key=_api_key)
 
     Settings.llm = llm
     Settings.embed_model = embed_model
