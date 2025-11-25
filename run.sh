@@ -92,7 +92,50 @@ if [ "$NEEDS_INSTALL" = true ]; then
     pip install -r requirements.txt
 fi
 
-# 4. Run the App
+# 4. Check for Ollama and Required Model
+echo ""
+echo "Checking for Ollama and required model..."
+
+if ! command -v ollama &> /dev/null; then
+    echo "----------------------------------------------------------------"
+    echo "ERROR: Ollama is not installed."
+    echo "This application requires Ollama to run the local LLM."
+    echo ""
+    echo "To install Ollama:"
+    echo "  1. Visit: https://ollama.ai/download"
+    echo "  2. Or use Homebrew: brew install ollama"
+    echo ""
+    echo "After installing, run this script again."
+    echo "----------------------------------------------------------------"
+    exit 1
+fi
+
+# Check if Ollama service is running and start if needed
+if ! pgrep -x "ollama" > /dev/null; then
+    echo "Starting Ollama service..."
+    ollama serve > /dev/null 2>&1 &
+    sleep 3
+fi
+
+# Check if the required model is available
+REQUIRED_MODEL="llama3.2:1b"
+if ! ollama list | grep -q "$REQUIRED_MODEL"; then
+    echo "----------------------------------------------------------------"
+    echo "Model '$REQUIRED_MODEL' not found."
+    echo "Downloading model (this may take a few minutes)..."
+    echo "----------------------------------------------------------------"
+    ollama pull "$REQUIRED_MODEL"
+    
+    if [ $? -ne 0 ]; then
+        echo "Failed to download model. Please check your internet connection."
+        exit 1
+    fi
+    echo "Model downloaded successfully!"
+else
+    echo "✓ Ollama is ready with model: $REQUIRED_MODEL"
+fi
+
+# 5. Run the App
 if command -v streamlit &> /dev/null; then
     echo "Starting application..."
     streamlit run app.py
