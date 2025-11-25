@@ -56,7 +56,10 @@ with st.sidebar:
         if os.path.exists(PERSIST_DIR):
             shutil.rmtree(PERSIST_DIR)
 
+        # Set flag to show indexing is in progress
+        st.session_state["indexing"] = True
         st.rerun()
+
 
 
 # ---------------------- LlamaIndex Settings ---------------------------------- #
@@ -125,7 +128,41 @@ def load_index():
 
 # Initialize Index
 if "index" not in st.session_state:
-    st.session_state["index"] = load_index()
+    # Check if we're in indexing mode
+    if st.session_state.get("indexing", False):
+        # Show progress manually
+        if os.path.exists(DATA_DIR) and os.listdir(DATA_DIR):
+            files = os.listdir(DATA_DIR)
+            st.info(f"📄 Found {len(files)} file(s) to index...")
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            # Step 1: Load documents
+            status_text.text("Step 1/3: Reading documents...")
+            progress_bar.progress(33)
+            documents = SimpleDirectoryReader(DATA_DIR).load_data()
+            
+            # Step 2: Create index
+            status_text.text(f"Step 2/3: Creating embeddings for {len(documents)} document(s)...")
+            progress_bar.progress(66)
+            index = VectorStoreIndex.from_documents(documents)
+            
+            # Step 3: Persist
+            status_text.text("Step 3/3: Saving index...")
+            progress_bar.progress(100)
+            index.storage_context.persist(persist_dir=PERSIST_DIR)
+            
+            # Clear progress indicators
+            progress_bar.empty()
+            status_text.empty()
+            st.success("✅ Indexing complete! You can now chat with your documents.")
+            
+            st.session_state["index"] = index
+            st.session_state["indexing"] = False
+        else:
+            st.session_state["indexing"] = False
+    else:
+        st.session_state["index"] = load_index()
 
 index = st.session_state["index"]
 
