@@ -113,6 +113,8 @@ index = st.session_state["index"]
 if index is None:
     st.warning("⚠️ No documents indexed. Upload files and click 'Re-index'.")
 else:
+    st.subheader("💬 Chat with Your Documents")
+    
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
@@ -157,3 +159,4 @@ else:
 
                 except Exception as e:
                     st.error(f"Error: {e}")
+

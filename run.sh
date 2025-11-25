@@ -136,9 +136,21 @@ else
     echo "✓ Ollama is ready with model: $REQUIRED_MODEL"
 fi
 
+# Cleanup function to remove uploaded data when script exits
+cleanup() {
+    echo ""
+    echo "Cleaning up uploaded files..."
+    rm -rf ./data ./storage
+    echo "Cleanup complete. Goodbye!"
+}
+
+# Set trap to run cleanup on script exit (Ctrl+C or terminal close)
+trap cleanup EXIT INT TERM
+
 # 5. Run the App
 if command -v streamlit &> /dev/null; then
     echo "Starting application..."
+    echo "(Press Ctrl+C to stop. All uploaded files will be deleted on exit.)"
     streamlit run app.py
 else
     echo "Error: streamlit command not found. Installation might have failed."
