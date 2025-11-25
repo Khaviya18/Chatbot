@@ -32,6 +32,21 @@ with st.sidebar:
         key="model_choice"
     )
     
+    # Show relevant instructions based on choice
+    if model_choice == "🏠 Local (Ollama)":
+        # Check if Ollama is running
+        import subprocess
+        try:
+            result = subprocess.run(["pgrep", "-x", "ollama"], capture_output=True)
+            if result.returncode == 0:
+                st.success("✅ Ollama is running")
+            else:
+                st.warning("⚠️ Ollama is not running")
+                st.info("Run `./start_ollama.sh` in terminal to start Ollama")
+        except:
+            st.error("❌ Ollama not found")
+            st.info("Install with: `brew install ollama`")
+    
     # API Key input for Gemini
     if model_choice == "🌐 Gemini (Cloud)":
         api_key = st.text_input(
