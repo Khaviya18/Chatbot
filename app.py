@@ -118,7 +118,7 @@ def get_settings(model_type, _api_key=None):
         if not _api_key:
             st.error("Please provide a Gemini API key in the sidebar.")
             st.stop()
-        llm = Gemini(model="gemini-1.5-flash", api_key=_api_key)
+        llm = Gemini(model="gemini-pro", api_key=_api_key)
 
     Settings.llm = llm
     Settings.embed_model = embed_model
