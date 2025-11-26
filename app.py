@@ -23,8 +23,144 @@ PERSIST_DIR = "./storage"
 OLLAMA_MODEL = "llama3.2:1b"
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
-st.set_page_config(page_title="Local RAG Chatbot", layout="wide")
-st.title("Document Chatbot")
+st.set_page_config(page_title="Cute RAG Chatbot", page_icon="🌸", layout="wide")
+
+# --- Custom CSS for "Dark Cute" Design ---
+st.markdown(
+    """
+    <style>
+    /* Import a cute font */
+    @import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600&display=swap');
+
+    /* Keyframe Animations */
+    @keyframes fadeIn {
+        0% { opacity: 0; transform: translateY(20px); }
+        100% { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes float {
+        0% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+        100% { transform: translateY(0px); }
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.02); }
+        100% { transform: scale(1); }
+    }
+
+    html, body, [class*="css"] {
+        font-family: 'Quicksand', sans-serif;
+        color: #e0e0e0;
+    }
+
+    /* Main background */
+    .stApp {
+        background-color: #1a1a2e; /* Dark Navy */
+        background-image: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+        animation: fadeIn 1.5s ease-out;
+    }
+
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background-color: #0f3460; /* Deep Blue */
+        border-right: 2px solid #e94560;
+    }
+    
+    [data-testid="stSidebar"] * {
+        color: #e0e0e0 !important;
+    }
+
+    /* Headers */
+    h1, h2, h3 {
+        color: #e94560 !important; /* Neon Pink/Red */
+        font-weight: 600 !important;
+        animation: fadeIn 2s ease-out;
+        text-shadow: 0px 0px 10px rgba(233, 69, 96, 0.5);
+    }
+    
+    /* Title Emoji Animation */
+    h1 span {
+        display: inline-block;
+        animation: float 3s ease-in-out infinite;
+    }
+
+    /* Buttons */
+    .stButton > button {
+        background-color: #e94560 !important; /* Neon Pink */
+        color: white !important;
+        border-radius: 25px !important;
+        border: none !important;
+        padding: 12px 24px !important;
+        font-weight: bold !important;
+        box-shadow: 0px 0px 15px rgba(233, 69, 96, 0.6);
+        transition: all 0.3s ease;
+        animation: fadeIn 2.5s ease-out;
+    }
+    .stButton > button:hover {
+        background-color: #ff2e63 !important; /* Brighter Pink */
+        transform: scale(1.05) translateY(-2px);
+        box-shadow: 0px 0px 25px rgba(255, 46, 99, 0.8);
+    }
+
+    /* Chat Input */
+    .stChatInput textarea {
+        border-radius: 25px !important;
+        border: 2px solid #e94560 !important;
+        background-color: #16213e !important;
+        color: #ffffff !important;
+        box-shadow: 0px 0px 10px rgba(233, 69, 96, 0.2);
+        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    .stChatInput textarea:focus {
+        border-color: #ff2e63 !important;
+        box-shadow: 0px 0px 15px rgba(255, 46, 99, 0.5);
+    }
+
+    /* Chat Messages */
+    [data-testid="stChatMessage"] {
+        border-radius: 20px;
+        padding: 15px;
+        margin-bottom: 15px;
+        border: 1px solid #533483;
+        box-shadow: 0px 4px 10px rgba(0,0,0,0.3);
+        transition: transform 0.2s ease;
+        animation: fadeIn 0.5s ease-out;
+    }
+    [data-testid="stChatMessage"]:hover {
+        transform: translateY(-2px);
+    }
+    
+    /* User Message */
+    [data-testid="stChatMessage"]:nth-child(odd) {
+        background-color: #16213e; /* Dark Blue */
+        border-left: 6px solid #0f3460;
+        color: #e0e0e0;
+    }
+
+    /* Assistant Message */
+    [data-testid="stChatMessage"]:nth-child(even) {
+        background-color: #2a2a40; /* Dark Purple/Grey */
+        border-left: 6px solid #e94560;
+        color: #e0e0e0;
+    }
+    
+    /* Success/Info/Warning boxes */
+    .stAlert {
+        background-color: #16213e;
+        color: #e0e0e0;
+        border-radius: 20px;
+        border: 1px solid #533483;
+        box-shadow: 0px 0px 10px rgba(83, 52, 131, 0.3);
+        animation: fadeIn 1s ease-out;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+st.title("✨ Document Chatbot ✨")
 
 # ----------------------- SIDEBAR SETTINGS ------------------------------------ #
 with st.sidebar:
