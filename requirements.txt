@@ -5,3 +5,4 @@ llama-index-embeddings-huggingface
 llama-index-readers-file
 streamlit
 google-generativeai
+python-dotenv

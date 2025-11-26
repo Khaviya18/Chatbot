@@ -12,6 +12,10 @@ from llama_index.llms.ollama import Ollama
 from llama_index.llms.gemini import Gemini
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 import google.generativeai as genai
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # --- Configuration ---
 DATA_DIR = "./data"
@@ -27,14 +31,12 @@ with st.sidebar:
     st.header("Model Selection")
     
     # Model choice
-    model_choice = st.radio(
-        "Choose your LLM:",
-        ["Local (Ollama)", "Gemini (Cloud)"],
-        key="model_choice"
-    )
+    # Force Gemini Cloud as the only model
+    model_choice = "Gemini (Cloud)"
+    st.info("Using Gemini (Cloud) model. Ollama option is disabled.")
     
     # Show relevant instructions based on choice
-    if model_choice == "🏠 Local (Ollama)":
+    if model_choice == "Local (Ollama)":
         # Check if Ollama is running
         import subprocess
         try:
@@ -48,20 +50,15 @@ with st.sidebar:
             st.error(f"Ollama check failed: {e}")
             st.info("Install Ollama with: `brew install ollama`")
     
-    # API Key input for Gemini
+    # Gemini API key is retrieved from environment variables (backend) for security
     if model_choice == "Gemini (Cloud)":
-        # Input box for Gemini API key
-        api_key = st.text_input(
-            "Enter your Gemini API key",
-            type="password",
-            help="Get a free key from Google AI Studio",
-            key="gemini_api_key_input"
-        )
-        if api_key:
-            st.session_state["gemini_api_key"] = api_key
-            st.success("API key saved.")
+        # Attempt to read API key from environment variable
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            st.error("Gemini API key not found. Please set the GEMINI_API_KEY environment variable on the server.")
         else:
-            st.info("Please provide a Gemini API key to use the cloud model.")
+            st.session_state["gemini_api_key"] = api_key
+            st.success("Gemini API key loaded from backend.")
     
     st.divider()
     st.subheader("Current Settings")
@@ -115,16 +112,17 @@ def get_settings(model_type, _api_key=None):
     """Initialize LLM and embeddings based on user choice"""
     embed_model = HuggingFaceEmbedding(model_name=EMBED_MODEL)
     
-    if model_type == "🏠 Local (Ollama)":
-        llm = Ollama(model=OLLAMA_MODEL, request_timeout=300.0)
-    else:  # Gemini
-        if not _api_key:
-            st.error("Please provide a Gemini API key in the sidebar.")
-            st.stop()
-        # Configure the genai library
-        genai.configure(api_key=_api_key)
-        # Use Gemini 2.5 Flash - the current stable model
-        llm = Gemini(model_name="models/gemini-2.5-flash", api_key=_api_key)
+    # Always set the embedding model first to avoid OpenAI default fallback
+    Settings.embed_model = embed_model
+
+    # Since only Gemini is used, always configure Gemini
+    if not _api_key:
+        return None, embed_model
+    
+    # Configure the genai library
+    genai.configure(api_key=_api_key)
+    # Use Gemini 2.5 Flash - the current stable model
+    llm = Gemini(model_name="models/gemini-2.5-flash", api_key=_api_key)
 
     Settings.llm = llm
     Settings.embed_model = embed_model
@@ -241,41 +239,49 @@ for msg in st.session_state.messages:
 if index is None:
     st.chat_input("Upload documents first to start chatting...", disabled=True)
     st.info("👆 Upload some documents and click 'Re-index' to start chatting!")
+elif llm is None:
+    st.chat_input("⚠️ Set GEMINI_API_KEY in .env to chat", disabled=True)
+    st.warning("Gemini API key is missing. Please set `GEMINI_API_KEY` in the `.env` file and restart.")
 else:
     if prompt := st.chat_input("Ask something from your documents..."):
-        st.chat_message("user").markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
+            st.chat_message("user").markdown(prompt)
+            st.session_state.messages.append({"role": "user", "content": prompt})
 
-        with st.chat_message("assistant"):
-            with st.spinner("Thinking..."):
+            # Special handling for request to return full PDF content
+            if prompt.strip().lower().startswith("what is the content"):
+                with st.chat_message("assistant"):
+                    with st.spinner("Gathering full document content..."):
+                        docs = SimpleDirectoryReader(DATA_DIR).load_data()
+                        full_text = "\n\n---\n\n".join([doc.text for doc in docs])
+                        st.markdown(full_text)
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": full_text
+                        })
+                st.stop()
 
-                query_engine = index.as_query_engine(
-                    streaming=True,
-                    similarity_top_k=1,
-                    system_prompt=(
-                        "You answer strictly using the provided context. "
-                        "If answer is not in documents, reply: "
-                        "'I cannot answer this based on the provided documents.'"
+            with st.chat_message("assistant"):
+                with st.spinner("Thinking..."):
+                    query_engine = index.as_query_engine(
+                        streaming=True,
+                        similarity_top_k=1,
+                        system_prompt=(
+                            "You answer strictly using the provided context. "
+                            "If answer is not in documents, reply: "
+                            "'I cannot answer this based on the provided documents.'"
+                        )
                     )
-                )
-
-                try:
-                    response = query_engine.query(prompt)
-                    placeholder = st.empty()
-
-                    full_response = ""
-                    for token in response.response_gen:
-                        full_response += token
-                        placeholder.markdown(full_response + "▌")
-
-                    placeholder.markdown(full_response)
-
-                    st.session_state.messages.append({
-                        "role": "assistant",
-                        "content": full_response
-                    })
-
-                except Exception as e:
-                    st.error(f"Error: {e}")
-
-
+                    try:
+                        response = query_engine.query(prompt)
+                        placeholder = st.empty()
+                        full_response = ""
+                        for token in response.response_gen:
+                            full_response += token
+                            placeholder.markdown(full_response + "▌")
+                        placeholder.markdown(full_response)
+                        st.session_state.messages.append({
+                            "role": "assistant",
+                            "content": full_response
+                        })
+                    except Exception as e:
+                        st.error(f"Error: {e}")
