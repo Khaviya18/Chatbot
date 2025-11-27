@@ -18,10 +18,12 @@ Click "Login with GitHub"
 
 ### Step 4: Add Environment Variables
 In Railway dashboard, go to Variables tab and add:
-- `GEMINI_API_KEY` = `AIzaSyDGbmMleedOQETDRzYfHNXrm_17m7J3Ap8`
-- `CLOUDINARY_CLOUD_NAME` = `dcuqfziqg`
-- `CLOUDINARY_API_KEY` = `175195586786464`
-- `CLOUDINARY_API_SECRET` = `bnRccc_l0tPFTCoYISNQgqRpNS4`
+- `GEMINI_API_KEY` = `your_gemini_api_key_here` (Get from [Google AI Studio](https://aistudio.google.com/apikey))
+- `CLOUDINARY_CLOUD_NAME` = `your_cloudinary_cloud_name` (Optional - Get from [Cloudinary Dashboard](https://cloudinary.com/console))
+- `CLOUDINARY_API_KEY` = `your_cloudinary_api_key` (Optional)
+- `CLOUDINARY_API_SECRET` = `your_cloudinary_api_secret` (Optional)
+
+⚠️ **SECURITY WARNING**: Never commit API keys to git! Always use environment variables.
 
 ### Step 5: Done!
 Railway will give you a URL like `https://chatbot-production-xxxx.up.railway.app`

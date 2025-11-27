@@ -19,21 +19,33 @@ app = Flask(__name__)
 CORS(app)
 
 # Initialize Cloudinary storage
-use_cloudinary = all([
-    os.getenv('CLOUDINARY_CLOUD_NAME'),
-    os.getenv('CLOUDINARY_API_KEY'),
-    os.getenv('CLOUDINARY_API_SECRET')
-])
+# Option 1: Try environment variables first
+cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+cloud_api_key = os.getenv('CLOUDINARY_API_KEY')
+cloud_api_secret = os.getenv('CLOUDINARY_API_SECRET')
+
+# Option 2: Fallback to hardcoded credentials (uncomment and fill in if needed)
+# cloud_name = "your_cloudinary_cloud_name"
+# cloud_api_key = "your_cloudinary_api_key"
+# cloud_api_secret = "your_cloudinary_api_secret"
+
+use_cloudinary = all([cloud_name, cloud_api_key, cloud_api_secret])
 
 if use_cloudinary:
-    storage = CloudinaryStorage()
+    storage = CloudinaryStorage(cloud_name=cloud_name, api_key=cloud_api_key, api_secret=cloud_api_secret)
     print("✅ Using Cloudinary for file storage")
 else:
     storage = None
     print("⚠️  Cloudinary not configured")
 
 # Initialize Gemini
+# Option 1: Try environment variable first
 api_key = os.getenv("GEMINI_API_KEY")
+
+# Option 2: Fallback to hardcoded key
+if not api_key:
+    api_key = "AIzaSyAmw5XvDFTid3Bdocds7ZJDiAlJXJT5qmU"
+
 if api_key:
     genai.configure(api_key=api_key)
     # Use stable 2.0 Flash model (verified available)
@@ -41,7 +53,7 @@ if api_key:
     print("✅ Gemini initialized")
 else:
     model = None
-    print("⚠️  Gemini API key not configured")
+    print("⚠️  Gemini API key not configured - please set GEMINI_API_KEY env var or hardcode it in app_flask.py")
 
 def allowed_file(filename):
     """Check if file extension is allowed"""
@@ -202,7 +214,18 @@ Answer strictly based on the provided documents. If the answer is not in the doc
         
         return jsonify({'response': response.text})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        error_msg = str(e)
+        # Check for API key errors
+        if '403' in error_msg or 'API key' in error_msg or 'leaked' in error_msg.lower():
+            return jsonify({
+                'error': 'API key error: Your Gemini API key is invalid or has been revoked. Please get a new key from https://aistudio.google.com/apikey and update your environment variables.'
+            }), 403
+        elif '401' in error_msg or 'unauthorized' in error_msg.lower():
+            return jsonify({
+                'error': 'Authentication failed: Please check your GEMINI_API_KEY environment variable.'
+            }), 401
+        else:
+            return jsonify({'error': f'Error: {error_msg}'}), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5001))

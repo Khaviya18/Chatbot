@@ -8,12 +8,16 @@ from werkzeug.utils import secure_filename
 class CloudinaryStorage:
     """Handle file storage with Cloudinary"""
     
-    def __init__(self):
-        """Initialize Cloudinary with credentials from environment"""
+    def __init__(self, cloud_name=None, api_key=None, api_secret=None):
+        """Initialize Cloudinary with credentials from parameters or environment"""
+        cloud_name = cloud_name or os.getenv('CLOUDINARY_CLOUD_NAME')
+        api_key = api_key or os.getenv('CLOUDINARY_API_KEY')
+        api_secret = api_secret or os.getenv('CLOUDINARY_API_SECRET')
+        
         cloudinary.config(
-            cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
-            api_key=os.getenv('CLOUDINARY_API_KEY'),
-            api_secret=os.getenv('CLOUDINARY_API_SECRET')
+            cloud_name=cloud_name,
+            api_key=api_key,
+            api_secret=api_secret
         )
         self.folder = 'chatbot_documents'
     

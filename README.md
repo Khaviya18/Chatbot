@@ -23,6 +23,7 @@ A Retrieval‑Augmented Generation (RAG) chatbot that answers questions **only**
      GEMINI_API_KEY=your_api_key_here
      ```
    - You can get a free key from [Google AI Studio](https://aistudio.google.com/apikey).
+   - ⚠️ **If you see a 403 error about a leaked API key**, see [SECURITY.md](SECURITY.md) for instructions on getting a new key.
 
 3. **Run the setup script** – it creates a virtual environment, installs all Python dependencies, and launches the app.
    ```bash
