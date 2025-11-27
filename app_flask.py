@@ -36,7 +36,8 @@ else:
 api_key = os.getenv("GEMINI_API_KEY")
 if api_key:
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    # Use stable 1.5 Flash model for better rate limits
+    model = genai.GenerativeModel('gemini-1.5-flash')
     print("✅ Gemini initialized")
 else:
     model = None
