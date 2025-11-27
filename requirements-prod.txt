@@ -1,0 +1,9 @@
+flask
+flask-cors
+python-dotenv
+llama-index-core
+llama-index-llms-gemini
+llama-index-embeddings-huggingface
+google-generativeai
+pypdf
+gunicorn
