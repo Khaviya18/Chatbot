@@ -53,16 +53,27 @@ else:
 # Initialize LLM and embeddings
 def init_settings():
     """Initialize LLM and embeddings"""
-    embed_model = HuggingFaceEmbedding(model_name=EMBED_MODEL)
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        return None, None
+    
+    genai.configure(api_key=api_key)
+    
+    # Use Gemini for both LLM and embeddings (lightweight, no torch needed)
+    try:
+        from llama_index.embeddings.gemini import GeminiEmbedding
+        embed_model = GeminiEmbedding(model_name="models/embedding-001", api_key=api_key)
+    except ImportError:
+        # Fallback to HuggingFace if Gemini embeddings not available
+        from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+        embed_model = HuggingFaceEmbedding(model_name=EMBED_MODEL)
+    
     Settings.embed_model = embed_model
     
-    api_key = os.getenv("GEMINI_API_KEY")
-    if api_key:
-        genai.configure(api_key=api_key)
-        llm = Gemini(model_name="models/gemini-2.5-flash", api_key=api_key)
-        Settings.llm = llm
-        return llm, embed_model
-    return None, embed_model
+    llm = Gemini(model_name="models/gemini-2.5-flash", api_key=api_key)
+    Settings.llm = llm
+    
+    return llm, embed_model
 
 llm, embed_model = init_settings()
 
