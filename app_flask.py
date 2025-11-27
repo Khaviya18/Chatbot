@@ -48,16 +48,23 @@ def allowed_file(filename):
 
 def extract_text_from_file(file_content, filename):
     """Extract text from PDF or text file"""
+    if not file_content:
+        return ""
+        
     ext = filename.rsplit('.', 1)[1].lower()
     
     if ext == 'pdf':
-        pdf_reader = PdfReader(io.BytesIO(file_content))
-        text = ""
-        for page in pdf_reader.pages:
-            text += page.extract_text() + "\n"
-        return text
+        try:
+            pdf_reader = PdfReader(io.BytesIO(file_content))
+            text = ""
+            for page in pdf_reader.pages:
+                text += (page.extract_text() or "") + "\n"
+            return text
+        except Exception as e:
+            print(f"PDF extraction error for {filename}: {e}")
+            return ""
     else:
-        return file_content.decode('utf-8')
+        return file_content.decode('utf-8', errors='ignore')
 
 # Routes
 @app.route('/')
@@ -157,9 +164,26 @@ def chat():
         all_text = ""
         for file_info in cloud_files:
             import requests
+            print(f"Downloading {file_info['name']} from {file_info['url']}")
             response = requests.get(file_info['url'])
-            text = extract_text_from_file(response.content, file_info['name'])
-            all_text += f"\n\n=== {file_info['name']} ===\n{text}"
+            
+            if response.status_code != 200:
+                print(f"Failed to download {file_info['name']}: Status {response.status_code}")
+                continue
+                
+            content = response.content
+            print(f"Downloaded {len(content)} bytes")
+            
+            if not content:
+                print(f"Warning: Empty content for {file_info['name']}")
+                continue
+                
+            try:
+                text = extract_text_from_file(content, file_info['name'])
+                all_text += f"\n\n=== {file_info['name']} ===\n{text}"
+            except Exception as e:
+                print(f"Error extracting text from {file_info['name']}: {e}")
+                continue
         
         # Create prompt with context
         file_list = ", ".join([f['name'] for f in cloud_files])
