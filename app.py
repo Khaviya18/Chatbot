@@ -106,6 +106,30 @@ if uploaded_files:
     st.info("Remember to click **Refresh / Re‑index Knowledge Base** in the sidebar after uploading.")
 
 
+# ---------------------- FILE MANAGEMENT -------------------------------------- #
+st.sidebar.subheader("Manage Knowledge Base Files")
+if os.path.exists(DATA_DIR):
+    files = os.listdir(DATA_DIR)
+    if files:
+        for file in files:
+            col1, col2 = st.sidebar.columns([0.8, 0.2])
+            with col1:
+                st.write(file)
+            with col2:
+                if st.button("❌", key=f"del_{file}", help=f"Delete {file}"):
+                    try:
+                        os.remove(os.path.join(DATA_DIR, file))
+                        st.sidebar.success(f"Deleted {file}")
+                        # Rerun to update the list immediately
+                        st.rerun()
+                    except Exception as e:
+                        st.sidebar.error(f"Error deleting {file}: {e}")
+    else:
+        st.sidebar.info("No files in knowledge base.")
+else:
+    st.sidebar.info("Data directory does not exist.")
+
+
 # ---------------------- LlamaIndex Settings ---------------------------------- #
 @st.cache_resource
 def get_settings(model_type, _api_key=None):
