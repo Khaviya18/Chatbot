@@ -59,6 +59,33 @@ def allowed_file(filename):
     """Check if file extension is allowed"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
+def normalize_query(query):
+    """Normalize and enhance query understanding"""
+    query_lower = query.strip().lower()
+    
+    # Common query variations mapping
+    query_variations = {
+        'academics': ['academics', 'academic', 'education', 'qualifications', 'degrees', 'studies', 'schooling'],
+        'experience': ['experience', 'work', 'employment', 'job', 'career', 'professional experience'],
+        'skills': ['skills', 'skill', 'abilities', 'competencies', 'expertise'],
+        'name': ['name', 'person name', 'who is', 'person\'s name', 'candidate name'],
+        'contact': ['contact', 'email', 'phone', 'address', 'location'],
+        'projects': ['projects', 'project', 'work done', 'portfolio'],
+    }
+    
+    # Enhance query with context
+    enhanced_query = query
+    
+    # Add context for common question patterns
+    if any(term in query_lower for term in ['academics', 'academic', 'education', 'qualification']):
+        enhanced_query += " (Look for Education, Academics, Qualifications, Degrees, University, College, School sections)"
+    elif any(term in query_lower for term in ['experience', 'work', 'employment', 'job']):
+        enhanced_query += " (Look for Experience, Work History, Employment, Professional Experience sections)"
+    elif any(term in query_lower for term in ['skill', 'ability', 'expertise']):
+        enhanced_query += " (Look for Skills, Technical Skills, Competencies, Expertise sections)"
+    
+    return enhanced_query
+
 def extract_text_from_file(file_content, filename):
     """Extract text from PDF or text file with improved extraction"""
     if not file_content:
@@ -191,6 +218,9 @@ def chat():
     if not query:
         return jsonify({'error': 'No query provided'}), 400
     
+    # Normalize and enhance the query
+    enhanced_query = normalize_query(query)
+    
     try:
         # Get all files from Cloudinary
         cloud_files = storage.list_files()
@@ -219,9 +249,21 @@ def chat():
             try:
                 text = extract_text_from_file(content, file_info['name'])
                 if text and text.strip():
+                    # Clean and structure the text better
+                    # Remove excessive whitespace but preserve structure
+                    lines = text.split('\n')
+                    cleaned_lines = []
+                    for line in lines:
+                        line = line.strip()
+                        if line:  # Skip empty lines
+                            cleaned_lines.append(line)
+                    
+                    # Rejoin with proper spacing
+                    cleaned_text = '\n'.join(cleaned_lines)
+                    
                     # Format text with clear document separator
-                    all_text += f"\n\n{'='*60}\nDOCUMENT: {file_info['name']}\n{'='*60}\n{text}\n"
-                    print(f"✅ Extracted {len(text)} characters from {file_info['name']}")
+                    all_text += f"\n\n{'='*60}\nDOCUMENT: {file_info['name']}\n{'='*60}\n{cleaned_text}\n"
+                    print(f"✅ Extracted {len(cleaned_text)} characters from {file_info['name']}")
                 else:
                     print(f"⚠️ Warning: No text extracted from {file_info['name']}")
             except Exception as e:
@@ -232,40 +274,109 @@ def chat():
         if query.strip().lower().startswith("what is the content"):
             return jsonify({'response': all_text})
         
-        # Create a more conversational and helpful prompt
+        # Create a professional-grade prompt with advanced reasoning
         file_list = ", ".join([f['name'] for f in cloud_files])
-        prompt = f"""You are a helpful assistant that answers questions based on the following documents.
+        
+        prompt = f"""You are an expert document analysis assistant with professional-grade accuracy. Your task is to answer questions based EXCLUSIVELY on the provided documents.
 
-DOCUMENTS AVAILABLE ({len(cloud_files)} file(s)): {file_list}
+═══════════════════════════════════════════════════════════════
+DOCUMENTS AVAILABLE ({len(cloud_files)} file(s)):
+{file_list}
+═══════════════════════════════════════════════════════════════
 
 DOCUMENT CONTENT:
 {all_text}
 
+═══════════════════════════════════════════════════════════════
 USER QUESTION: {query}
+ENHANCED UNDERSTANDING: {enhanced_query}
+═══════════════════════════════════════════════════════════════
 
-INSTRUCTIONS:
-- Answer the user's question in a natural, conversational way
-- Use information from the documents to answer
-- If the question asks about something specific (like a name, date, skill, etc.), search through all the document content carefully
-- Be flexible with question phrasing - "what is academics" and "what is here academics" both mean the same thing
-- If you find relevant information, provide a clear and helpful answer
-- If the information truly isn't in the documents, politely say you couldn't find that information in the provided documents
-- For resume/CV questions, look for sections like Education, Academics, Experience, Skills, etc.
-- Be thorough and check all sections of the documents
+PROFESSIONAL ANALYSIS PROTOCOL:
 
-Answer:"""
+STEP 1 - QUERY UNDERSTANDING:
+- Parse the question carefully to understand what information is being requested
+- Identify key entities: names, dates, skills, qualifications, experiences, achievements, etc.
+- Recognize question variations: "academics" = "education" = "qualifications" = "academic background"
+- Understand context: "here" = "in these documents", "the person" = "the subject of the document"
+
+STEP 2 - COMPREHENSIVE SEARCH:
+- Search through ALL document content systematically
+- Look for exact matches AND semantic equivalents
+- Check all sections: headers, body text, lists, tables, etc.
+- For resumes/CVs, search: Education, Academics, Qualifications, Experience, Work History, Skills, Achievements, Projects, Certifications, etc.
+- Consider alternative phrasings and synonyms
+
+STEP 3 - INFORMATION EXTRACTION:
+- Extract ALL relevant information, not just the first match
+- Look for related context that might answer the question
+- If asking about a category (like "academics"), find ALL items in that category
+- If asking about a person, find their name in multiple places (header, signature, etc.)
+
+STEP 4 - ANSWER FORMULATION:
+- Provide complete, accurate answers based on the extracted information
+- If multiple pieces of information exist, include all relevant details
+- Format answers clearly and professionally
+- Use bullet points or lists when appropriate
+- Cite which document the information came from if multiple documents exist
+
+STEP 5 - VERIFICATION:
+- Double-check that your answer is supported by the document content
+- Ensure you haven't missed any relevant information
+- Verify the answer directly addresses the question asked
+
+ANSWER GUIDELINES:
+✅ DO:
+- Answer based ONLY on information found in the documents
+- Be thorough and comprehensive
+- Provide complete information when available
+- Use natural, professional language
+- Include relevant details and context
+- Handle question variations intelligently ("academics" = "education" = "qualifications")
+
+❌ DON'T:
+- Make up information not in the documents
+- Say "I cannot answer" unless you've thoroughly searched and found nothing
+- Skip information that's clearly present
+- Give vague or incomplete answers when details are available
+
+EXAMPLES OF GOOD ANSWERS:
+
+Question: "What is the person's name?"
+Good Answer: "The person's name is [Name] as mentioned in the document header and throughout the resume."
+
+Question: "What is academics?" or "What is here academics?"
+Good Answer: "Based on the Education/Academics section: [List all academic qualifications, degrees, institutions, dates, etc. found in the documents]"
+
+Question: "What skills does the person have?"
+Good Answer: "The person has the following skills: [List all skills found in Skills section, Experience section, etc.]"
+
+═══════════════════════════════════════════════════════════════
+
+Now, analyze the documents and provide a professional, comprehensive answer to the user's question.
+
+ANSWER:"""
         
-        # Query Gemini with better configuration
+        # Professional generation configuration for accurate responses
         generation_config = {
-            "temperature": 0.7,
-            "top_p": 0.95,
+            "temperature": 0.3,  # Lower temperature for more accurate, focused answers
+            "top_p": 0.9,
             "top_k": 40,
-            "max_output_tokens": 2048,
+            "max_output_tokens": 4096,  # Increased for comprehensive answers
         }
+        
+        # Use safety settings that allow more content
+        safety_settings = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+        ]
         
         response = model.generate_content(
             prompt,
-            generation_config=generation_config
+            generation_config=generation_config,
+            safety_settings=safety_settings
         )
         
         return jsonify({'response': response.text})
