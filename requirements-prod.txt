@@ -1,20 +1,13 @@
-# Ultra-lightweight requirements for Render free tier
+# Absolute minimum requirements - no ML libraries at all
 flask==3.1.2
 flask-cors==6.0.1
 python-dotenv==1.0.0
 gunicorn==23.0.0
 cloudinary==1.44.1
 requests==2.32.3
-
-# LlamaIndex with Gemini (no local embeddings)
-llama-index-core==0.12.7
-llama-index-llms-gemini==0.4.3
-
-# Google AI
 google-generativeai==0.8.3
-
-# PDF support
 pypdf==5.1.0
 
-# Use Gemini for embeddings instead of local model
-llama-index-embeddings-gemini==0.2.3
+# Minimal LlamaIndex - just core, no embeddings
+llama-index-core==0.12.7
+llama-index-llms-gemini==0.4.3
