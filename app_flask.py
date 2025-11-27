@@ -60,7 +60,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def extract_text_from_file(file_content, filename):
-    """Extract text from PDF or text file"""
+    """Extract text from PDF or text file with improved extraction"""
     if not file_content:
         return ""
         
@@ -70,14 +70,39 @@ def extract_text_from_file(file_content, filename):
         try:
             pdf_reader = PdfReader(io.BytesIO(file_content))
             text = ""
-            for page in pdf_reader.pages:
-                text += (page.extract_text() or "") + "\n"
-            return text
+            for i, page in enumerate(pdf_reader.pages):
+                page_text = page.extract_text()
+                if page_text:
+                    # Clean up the text - remove excessive whitespace but keep structure
+                    page_text = ' '.join(page_text.split())
+                    text += page_text + "\n\n"
+            
+            # If extraction seems empty, try alternative method
+            if not text.strip():
+                print(f"Warning: PDF extraction returned empty text for {filename}, trying alternative method")
+                text = ""
+                for page in pdf_reader.pages:
+                    try:
+                        # Try extracting with layout preservation
+                        page_text = page.extract_text(extraction_mode="layout")
+                        if page_text:
+                            text += page_text + "\n\n"
+                    except:
+                        pass
+            
+            return text.strip()
         except Exception as e:
             print(f"PDF extraction error for {filename}: {e}")
             return ""
     else:
-        return file_content.decode('utf-8', errors='ignore')
+        # For text files, decode with error handling
+        try:
+            return file_content.decode('utf-8', errors='ignore')
+        except:
+            try:
+                return file_content.decode('latin-1', errors='ignore')
+            except:
+                return str(file_content)
 
 # Routes
 @app.route('/')
@@ -193,24 +218,55 @@ def chat():
                 
             try:
                 text = extract_text_from_file(content, file_info['name'])
-                all_text += f"\n\n=== {file_info['name']} ===\n{text}"
+                if text and text.strip():
+                    # Format text with clear document separator
+                    all_text += f"\n\n{'='*60}\nDOCUMENT: {file_info['name']}\n{'='*60}\n{text}\n"
+                    print(f"✅ Extracted {len(text)} characters from {file_info['name']}")
+                else:
+                    print(f"⚠️ Warning: No text extracted from {file_info['name']}")
             except Exception as e:
-                print(f"Error extracting text from {file_info['name']}: {e}")
+                print(f"❌ Error extracting text from {file_info['name']}: {e}")
                 continue
         
-        # Create prompt with context
+        # Special handling for "what is the content" queries
+        if query.strip().lower().startswith("what is the content"):
+            return jsonify({'response': all_text})
+        
+        # Create a more conversational and helpful prompt
         file_list = ", ".join([f['name'] for f in cloud_files])
-        prompt = f"""You have access to {len(cloud_files)} document(s): {file_list}.
+        prompt = f"""You are a helpful assistant that answers questions based on the following documents.
 
-Here is the content of all documents:
+DOCUMENTS AVAILABLE ({len(cloud_files)} file(s)): {file_list}
+
+DOCUMENT CONTENT:
 {all_text}
 
-User question: {query}
+USER QUESTION: {query}
 
-Answer strictly based on the provided documents. If the answer is not in the documents, say "I cannot answer this based on the provided documents." """
+INSTRUCTIONS:
+- Answer the user's question in a natural, conversational way
+- Use information from the documents to answer
+- If the question asks about something specific (like a name, date, skill, etc.), search through all the document content carefully
+- Be flexible with question phrasing - "what is academics" and "what is here academics" both mean the same thing
+- If you find relevant information, provide a clear and helpful answer
+- If the information truly isn't in the documents, politely say you couldn't find that information in the provided documents
+- For resume/CV questions, look for sections like Education, Academics, Experience, Skills, etc.
+- Be thorough and check all sections of the documents
+
+Answer:"""
         
-        # Query Gemini
-        response = model.generate_content(prompt)
+        # Query Gemini with better configuration
+        generation_config = {
+            "temperature": 0.7,
+            "top_p": 0.95,
+            "top_k": 40,
+            "max_output_tokens": 2048,
+        }
+        
+        response = model.generate_content(
+            prompt,
+            generation_config=generation_config
+        )
         
         return jsonify({'response': response.text})
     except Exception as e:
