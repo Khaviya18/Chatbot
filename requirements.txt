@@ -1,8 +1,9 @@
-llama-index-core
-llama-index-llms-ollama
-llama-index-llms-gemini
-llama-index-embeddings-huggingface
-llama-index-readers-file
-streamlit
-google-generativeai
-python-dotenv
+# Even more minimal - remove llama-index-core which is huge
+flask==3.1.2
+flask-cors==6.0.1
+python-dotenv==1.0.0
+gunicorn==23.0.0
+cloudinary==1.44.1
+requests==2.32.3
+google-generativeai==0.8.3
+pypdf==5.1.0
