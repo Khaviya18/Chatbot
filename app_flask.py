@@ -14,6 +14,7 @@ from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 import google.generativeai as genai
 from dotenv import load_dotenv
 from werkzeug.utils import secure_filename
+from cloudinary_storage import CloudinaryStorage
 
 # Load environment variables
 load_dotenv()
@@ -34,6 +35,20 @@ CORS(app)
 
 # Global index variable
 index = None
+
+# Initialize Cloudinary storage
+use_cloudinary = all([
+    os.getenv('CLOUDINARY_CLOUD_NAME'),
+    os.getenv('CLOUDINARY_API_KEY'),
+    os.getenv('CLOUDINARY_API_SECRET')
+])
+
+if use_cloudinary:
+    storage = CloudinaryStorage()
+    print("✅ Using Cloudinary for file storage")
+else:
+    storage = None
+    print("⚠️  Using local file storage (files will not persist on server restart)")
 
 # Initialize LLM and embeddings
 def init_settings():
@@ -56,10 +71,16 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def get_files():
-    """Get list of files in data directory (excluding hidden files)"""
-    if not os.path.exists(DATA_DIR):
-        return []
-    return [f for f in os.listdir(DATA_DIR) if not f.startswith('.') and os.path.isfile(os.path.join(DATA_DIR, f))]
+    """Get list of files (from Cloudinary or local directory)"""
+    if use_cloudinary and storage:
+        # Get files from Cloudinary
+        cloud_files = storage.list_files()
+        return [f['name'] for f in cloud_files]
+    else:
+        # Get files from local directory
+        if not os.path.exists(DATA_DIR):
+            return []
+        return [f for f in os.listdir(DATA_DIR) if not f.startswith('.') and os.path.isfile(os.path.join(DATA_DIR, f))]
 
 def build_index():
     """Build or load the index"""
@@ -80,6 +101,10 @@ def build_index():
             pass
     
     # Build new index
+    if use_cloudinary and storage:
+        # Download all files from Cloudinary to local temp directory
+        storage.download_all_files(DATA_DIR)
+    
     file_paths = [os.path.join(DATA_DIR, f) for f in files]
     documents = SimpleDirectoryReader(input_files=file_paths).load_data()
     index = VectorStoreIndex.from_documents(documents)
@@ -108,8 +133,18 @@ def upload_file():
     for file in files:
         if file and file.filename and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            file.save(os.path.join(DATA_DIR, filename))
-            uploaded.append(filename)
+            
+            if use_cloudinary and storage:
+                # Upload to Cloudinary
+                try:
+                    storage.upload_file(file, filename)
+                    uploaded.append(filename)
+                except Exception as e:
+                    print(f"Cloudinary upload error: {e}")
+            else:
+                # Save locally
+                file.save(os.path.join(DATA_DIR, filename))
+                uploaded.append(filename)
     
     return jsonify({
         'message': f'Uploaded {len(uploaded)} file(s)',
@@ -124,14 +159,18 @@ def list_files():
 
 @app.route('/files/<filename>', methods=['DELETE'])
 def delete_file(filename):
-    """Delete a file from the data directory"""
-    file_path = os.path.join(DATA_DIR, secure_filename(filename))
-    
-    if not os.path.exists(file_path):
-        return jsonify({'error': 'File not found'}), 404
-    
+    """Delete a file from Cloudinary or local storage"""
     try:
-        os.remove(file_path)
+        if use_cloudinary and storage:
+            # Delete from Cloudinary
+            storage.delete_file(filename)
+        else:
+            # Delete from local storage
+            file_path = os.path.join(DATA_DIR, secure_filename(filename))
+            if not os.path.exists(file_path):
+                return jsonify({'error': 'File not found'}), 404
+            os.remove(file_path)
+        
         return jsonify({'message': f'Deleted {filename}'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
