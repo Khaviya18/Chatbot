@@ -230,6 +230,8 @@ def chat():
         
         # Download and extract text from all files
         all_text = ""
+        file_list = ", ".join([f['name'] for f in cloud_files])
+        
         for file_info in cloud_files:
             import requests
             print(f"Downloading {file_info['name']} from {file_info['url']}")
@@ -249,14 +251,21 @@ def chat():
             try:
                 text = extract_text_from_file(content, file_info['name'])
                 if text and text.strip():
-                    # Clean and structure the text better
-                    # Remove excessive whitespace but preserve structure
+                    # Clean text: remove excessive whitespace but preserve paragraph structure
+                    # Keep single blank lines for readability, remove multiple consecutive blank lines
                     lines = text.split('\n')
                     cleaned_lines = []
+                    prev_empty = False
+                    
                     for line in lines:
-                        line = line.strip()
-                        if line:  # Skip empty lines
-                            cleaned_lines.append(line)
+                        stripped = line.strip()
+                        if stripped:  # Non-empty line
+                            cleaned_lines.append(stripped)
+                            prev_empty = False
+                        elif not prev_empty:  # First empty line in a sequence - keep it
+                            cleaned_lines.append('')
+                            prev_empty = True
+                        # Skip additional consecutive empty lines
                     
                     # Rejoin with proper spacing
                     cleaned_text = '\n'.join(cleaned_lines)
@@ -265,17 +274,37 @@ def chat():
                     all_text += f"\n\n{'='*60}\nDOCUMENT: {file_info['name']}\n{'='*60}\n{cleaned_text}\n"
                     print(f"✅ Extracted {len(cleaned_text)} characters from {file_info['name']}")
                 else:
-                    print(f"⚠️ Warning: No text extracted from {file_info['name']}")
+                    print(f"⚠️ Warning: No text extracted from {file_info['name']} (extracted text length: {len(text) if text else 0})")
             except Exception as e:
                 print(f"❌ Error extracting text from {file_info['name']}: {e}")
+                import traceback
+                traceback.print_exc()
                 continue
         
         # Special handling for "what is the content" queries
-        if query.strip().lower().startswith("what is the content"):
-            return jsonify({'response': all_text})
+        query_lower = query.strip().lower()
+        if any(phrase in query_lower for phrase in ["what is the content", "show me the content", "display the content", "full content", "what's in the pdf", "what's in the document"]):
+            if all_text and all_text.strip():
+                # Format the response nicely with clear structure
+                formatted_response = f"📄 **Full Content of All Documents**\n\n{all_text}\n\n---\n*End of document content*"
+                print(f"✅ Returning full content ({len(all_text)} characters)")
+                return jsonify({'response': formatted_response})
+            else:
+                # If no text was extracted, provide helpful message and try to debug
+                print(f"⚠️ Warning: all_text is empty. Files processed: {len(cloud_files)}")
+                error_msg = f"⚠️ **No text content could be extracted from the documents.**\n\n"
+                error_msg += f"**Available files:** {file_list}\n\n"
+                error_msg += "**Possible reasons:**\n"
+                error_msg += "- Files may be empty or corrupted\n"
+                error_msg += "- Files may be in an unsupported format\n"
+                error_msg += "- Text extraction may have failed\n\n"
+                error_msg += "**Please try:**\n"
+                error_msg += "- Asking a specific question about the documents\n"
+                error_msg += "- Re-uploading the files\n"
+                error_msg += "- Checking if the files contain readable text"
+                return jsonify({'response': error_msg})
         
         # Create a professional-grade prompt with advanced reasoning
-        file_list = ", ".join([f['name'] for f in cloud_files])
         
         prompt = f"""You are an expert document analysis assistant with professional-grade accuracy. Your task is to answer questions based EXCLUSIVELY on the provided documents.
 
