@@ -13,6 +13,10 @@ load_dotenv()
 
 # Configuration
 ALLOWED_EXTENSIONS = {'pdf', 'txt', 'md'}
+DATA_DIR = "./data"
+
+# Create data directory if it doesn't exist
+os.makedirs(DATA_DIR, exist_ok=True)
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -144,12 +148,9 @@ def serve_static(path):
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    """Upload files to Cloudinary"""
+    """Upload files to Cloudinary or local storage"""
     if 'files' not in request.files:
         return jsonify({'error': 'No files provided'}), 400
-    
-    if not use_cloudinary or not storage:
-        return jsonify({'error': 'Cloud storage not configured'}), 500
     
     files = request.files.getlist('files')
     uploaded = []
@@ -158,8 +159,16 @@ def upload_file():
         if file and file.filename and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             try:
-                storage.upload_file(file, filename)
-                uploaded.append(filename)
+                if use_cloudinary and storage:
+                    # Upload to Cloudinary
+                    storage.upload_file(file, filename)
+                    uploaded.append(filename)
+                else:
+                    # Save to local storage
+                    file_path = os.path.join(DATA_DIR, filename)
+                    file.save(file_path)
+                    uploaded.append(filename)
+                    print(f"✅ Saved {filename} to local storage")
             except Exception as e:
                 print(f"Upload error: {e}")
     
@@ -170,23 +179,35 @@ def upload_file():
 
 @app.route('/files', methods=['GET'])
 def list_files():
-    """List all files"""
+    """List all files from Cloudinary or local storage"""
     if use_cloudinary and storage:
         cloud_files = storage.list_files()
         files = [f['name'] for f in cloud_files]
     else:
-        files = []
+        # List files from local storage
+        if os.path.exists(DATA_DIR):
+            files = [f for f in os.listdir(DATA_DIR) 
+                    if os.path.isfile(os.path.join(DATA_DIR, f)) and not f.startswith('.')]
+        else:
+            files = []
     
     return jsonify({'files': files})
 
 @app.route('/files/<filename>', methods=['DELETE'])
 def delete_file(filename):
-    """Delete a file"""
-    if not use_cloudinary or not storage:
-        return jsonify({'error': 'Cloud storage not configured'}), 500
-    
+    """Delete a file from Cloudinary or local storage"""
     try:
-        storage.delete_file(filename)
+        if use_cloudinary and storage:
+            storage.delete_file(filename)
+        else:
+            # Delete from local storage
+            file_path = os.path.join(DATA_DIR, secure_filename(filename))
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"✅ Deleted {filename} from local storage")
+            else:
+                return jsonify({'error': 'File not found'}), 404
+        
         return jsonify({'message': f'Deleted {filename}'})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -196,21 +217,27 @@ def reindex():
     """Reindex - just return success since we query on-demand"""
     if use_cloudinary and storage:
         files = storage.list_files()
-        return jsonify({
-            'message': 'Index refreshed',
-            'file_count': len(files),
-            'document_count': len(files)
-        })
-    return jsonify({'message': 'No files', 'file_count': 0})
+        file_count = len(files)
+    else:
+        # Count local files
+        if os.path.exists(DATA_DIR):
+            files = [f for f in os.listdir(DATA_DIR) 
+                    if os.path.isfile(os.path.join(DATA_DIR, f)) and not f.startswith('.')]
+            file_count = len(files)
+        else:
+            file_count = 0
+    
+    return jsonify({
+        'message': 'Index refreshed',
+        'file_count': file_count,
+        'document_count': file_count
+    })
 
 @app.route('/chat', methods=['POST'])
 def chat():
     """Chat with documents using Gemini"""
     if not model:
         return jsonify({'error': 'Gemini API not configured'}), 500
-    
-    if not use_cloudinary or not storage:
-        return jsonify({'error': 'Cloud storage not configured'}), 500
     
     data = request.json
     query = data.get('query', '')
@@ -222,64 +249,106 @@ def chat():
     enhanced_query = normalize_query(query)
     
     try:
-        # Get all files from Cloudinary
-        cloud_files = storage.list_files()
-        
-        if not cloud_files:
-            return jsonify({'error': 'No documents available. Please upload files first.'}), 400
-        
-        # Download and extract text from all files
-        all_text = ""
-        file_list = ", ".join([f['name'] for f in cloud_files])
-        
-        for file_info in cloud_files:
-            import requests
-            print(f"Downloading {file_info['name']} from {file_info['url']}")
-            response = requests.get(file_info['url'])
+        # Get all files from Cloudinary or local storage
+        if use_cloudinary and storage:
+            cloud_files = storage.list_files()
+            file_list = ", ".join([f['name'] for f in cloud_files])
             
-            if response.status_code != 200:
-                print(f"Failed to download {file_info['name']}: Status {response.status_code}")
-                continue
-                
-            content = response.content
-            print(f"Downloaded {len(content)} bytes")
+            if not cloud_files:
+                return jsonify({'error': 'No documents available. Please upload files first.'}), 400
             
-            if not content:
-                print(f"Warning: Empty content for {file_info['name']}")
-                continue
+            # Download and extract text from all files
+            all_text = ""
+            
+            for file_info in cloud_files:
+                import requests
+                print(f"Downloading {file_info['name']} from {file_info['url']}")
+                response = requests.get(file_info['url'])
                 
-            try:
-                text = extract_text_from_file(content, file_info['name'])
-                if text and text.strip():
-                    # Clean text: remove excessive whitespace but preserve paragraph structure
-                    # Keep single blank lines for readability, remove multiple consecutive blank lines
-                    lines = text.split('\n')
-                    cleaned_lines = []
-                    prev_empty = False
+                if response.status_code != 200:
+                    print(f"Failed to download {file_info['name']}: Status {response.status_code}")
+                    continue
                     
-                    for line in lines:
-                        stripped = line.strip()
-                        if stripped:  # Non-empty line
-                            cleaned_lines.append(stripped)
-                            prev_empty = False
-                        elif not prev_empty:  # First empty line in a sequence - keep it
-                            cleaned_lines.append('')
-                            prev_empty = True
-                        # Skip additional consecutive empty lines
+                content = response.content
+                print(f"Downloaded {len(content)} bytes")
+                
+                if not content:
+                    print(f"Warning: Empty content for {file_info['name']}")
+                    continue
                     
-                    # Rejoin with proper spacing
-                    cleaned_text = '\n'.join(cleaned_lines)
+                try:
+                    text = extract_text_from_file(content, file_info['name'])
+                    if text and text.strip():
+                        # Clean text: remove excessive whitespace but preserve paragraph structure
+                        lines = text.split('\n')
+                        cleaned_lines = []
+                        prev_empty = False
+                        
+                        for line in lines:
+                            stripped = line.strip()
+                            if stripped:  # Non-empty line
+                                cleaned_lines.append(stripped)
+                                prev_empty = False
+                            elif not prev_empty:  # First empty line in a sequence - keep it
+                                cleaned_lines.append('')
+                                prev_empty = True
+                        
+                        cleaned_text = '\n'.join(cleaned_lines)
+                        all_text += f"\n\n{'='*60}\nDOCUMENT: {file_info['name']}\n{'='*60}\n{cleaned_text}\n"
+                        print(f"✅ Extracted {len(cleaned_text)} characters from {file_info['name']}")
+                    else:
+                        print(f"⚠️ Warning: No text extracted from {file_info['name']} (extracted text length: {len(text) if text else 0})")
+                except Exception as e:
+                    print(f"❌ Error extracting text from {file_info['name']}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    continue
+        else:
+            # Use local storage
+            if not os.path.exists(DATA_DIR):
+                return jsonify({'error': 'No documents available. Please upload files first.'}), 400
+            
+            local_files = [f for f in os.listdir(DATA_DIR) 
+                          if os.path.isfile(os.path.join(DATA_DIR, f)) and not f.startswith('.')]
+            
+            if not local_files:
+                return jsonify({'error': 'No documents available. Please upload files first.'}), 400
+            
+            file_list = ", ".join(local_files)
+            all_text = ""
+            
+            for filename in local_files:
+                file_path = os.path.join(DATA_DIR, filename)
+                try:
+                    with open(file_path, 'rb') as f:
+                        content = f.read()
                     
-                    # Format text with clear document separator
-                    all_text += f"\n\n{'='*60}\nDOCUMENT: {file_info['name']}\n{'='*60}\n{cleaned_text}\n"
-                    print(f"✅ Extracted {len(cleaned_text)} characters from {file_info['name']}")
-                else:
-                    print(f"⚠️ Warning: No text extracted from {file_info['name']} (extracted text length: {len(text) if text else 0})")
-            except Exception as e:
-                print(f"❌ Error extracting text from {file_info['name']}: {e}")
-                import traceback
-                traceback.print_exc()
-                continue
+                    text = extract_text_from_file(content, filename)
+                    if text and text.strip():
+                        # Clean text
+                        lines = text.split('\n')
+                        cleaned_lines = []
+                        prev_empty = False
+                        
+                        for line in lines:
+                            stripped = line.strip()
+                            if stripped:
+                                cleaned_lines.append(stripped)
+                                prev_empty = False
+                            elif not prev_empty:
+                                cleaned_lines.append('')
+                                prev_empty = True
+                        
+                        cleaned_text = '\n'.join(cleaned_lines)
+                        all_text += f"\n\n{'='*60}\nDOCUMENT: {filename}\n{'='*60}\n{cleaned_text}\n"
+                        print(f"✅ Extracted {len(cleaned_text)} characters from {filename}")
+                    else:
+                        print(f"⚠️ Warning: No text extracted from {filename}")
+                except Exception as e:
+                    print(f"❌ Error reading {filename}: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    continue
         
         # Special handling for "what is the content" queries
         query_lower = query.strip().lower()
