@@ -48,7 +48,7 @@ api_key = os.getenv("GEMINI_API_KEY")
 
 # Option 2: Fallback to hardcoded key
 if not api_key:
-    api_key = "AIzaSyAmw5XvDFTid3Bdocds7ZJDiAlJXJT5qmU"
+    api_key = "AIzaSyCC9h2yMTJiAJKUbCLkgyai5RZWAmgRoFY"
 
 if api_key:
     genai.configure(api_key=api_key)
