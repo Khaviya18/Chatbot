@@ -249,17 +249,23 @@ def chat():
     enhanced_query = normalize_query(query)
     
     try:
+        # Initialize variables
+        cloud_files = None
+        local_files = None
+        file_list = ""
+        all_text = ""
+        file_count = 0
+        
         # Get all files from Cloudinary or local storage
         if use_cloudinary and storage:
             cloud_files = storage.list_files()
             file_list = ", ".join([f['name'] for f in cloud_files])
+            file_count = len(cloud_files)
             
             if not cloud_files:
                 return jsonify({'error': 'No documents available. Please upload files first.'}), 400
             
             # Download and extract text from all files
-            all_text = ""
-            
             for file_info in cloud_files:
                 import requests
                 print(f"Downloading {file_info['name']} from {file_info['url']}")
@@ -310,12 +316,11 @@ def chat():
             
             local_files = [f for f in os.listdir(DATA_DIR) 
                           if os.path.isfile(os.path.join(DATA_DIR, f)) and not f.startswith('.')]
+            file_list = ", ".join(local_files)
+            file_count = len(local_files)
             
             if not local_files:
                 return jsonify({'error': 'No documents available. Please upload files first.'}), 400
-            
-            file_list = ", ".join(local_files)
-            all_text = ""
             
             for filename in local_files:
                 file_path = os.path.join(DATA_DIR, filename)
@@ -360,7 +365,7 @@ def chat():
                 return jsonify({'response': formatted_response})
             else:
                 # If no text was extracted, provide helpful message and try to debug
-                print(f"⚠️ Warning: all_text is empty. Files processed: {len(cloud_files)}")
+                print(f"⚠️ Warning: all_text is empty. Files processed: {file_count}")
                 error_msg = f"⚠️ **No text content could be extracted from the documents.**\n\n"
                 error_msg += f"**Available files:** {file_list}\n\n"
                 error_msg += "**Possible reasons:**\n"
@@ -374,11 +379,10 @@ def chat():
                 return jsonify({'response': error_msg})
         
         # Create a professional-grade prompt with advanced reasoning
-        
         prompt = f"""You are an expert document analysis assistant with professional-grade accuracy. Your task is to answer questions based EXCLUSIVELY on the provided documents.
 
 ═══════════════════════════════════════════════════════════════
-DOCUMENTS AVAILABLE ({len(cloud_files)} file(s)):
+DOCUMENTS AVAILABLE ({file_count} file(s)):
 {file_list}
 ═══════════════════════════════════════════════════════════════
 
