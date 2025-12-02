@@ -271,7 +271,7 @@ def chat():
         
         # Get all files from Cloudinary or local storage (optional - allow chat without documents)
         if use_cloudinary and storage:
-        cloud_files = storage.list_files()
+            cloud_files = storage.list_files()
             file_list = ", ".join([f['name'] for f in cloud_files]) if cloud_files else ""
             file_count = len(cloud_files) if cloud_files else 0
         else:
@@ -279,10 +279,10 @@ def chat():
             file_list = ""
             file_count = 0
         
-        # Allow chat without documents - files are optional for general conversation
-        
-        # Download and extract text from all files
-        for file_info in cloud_files:
+        # Only process documents if files exist (Cloudinary)
+        if file_count > 0 and cloud_files:
+            # Download and extract text from all files
+            for file_info in cloud_files:
             import requests
             print(f"Downloading {file_info['name']} from {file_info['url']}")
             response = requests.get(file_info['url'])
