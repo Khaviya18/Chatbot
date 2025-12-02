@@ -298,25 +298,25 @@ def chat():
             try:
                 text = extract_text_from_file(content, file_info['name'])
                 if text and text.strip():
-                        # Clean text: remove excessive whitespace but preserve paragraph structure
-                        lines = text.split('\n')
-                        cleaned_lines = []
-                        prev_empty = False
-                        
-                        for line in lines:
-                            stripped = line.strip()
-                            if stripped:  # Non-empty line
-                                cleaned_lines.append(stripped)
-                                prev_empty = False
-                            elif not prev_empty:  # First empty line in a sequence - keep it
-                                cleaned_lines.append('')
-                                prev_empty = True
-                        
-                        cleaned_text = '\n'.join(cleaned_lines)
-                        all_text += f"\n\n{'='*60}\nDOCUMENT: {file_info['name']}\n{'='*60}\n{cleaned_text}\n"
-                        print(f"✅ Extracted {len(cleaned_text)} characters from {file_info['name']}")
-                    else:
-                        print(f"⚠️ Warning: No text extracted from {file_info['name']} (extracted text length: {len(text) if text else 0})")
+                    # Clean text: remove excessive whitespace but preserve paragraph structure
+                    lines = text.split('\n')
+                    cleaned_lines = []
+                    prev_empty = False
+                    
+                    for line in lines:
+                        stripped = line.strip()
+                        if stripped:  # Non-empty line
+                            cleaned_lines.append(stripped)
+                            prev_empty = False
+                        elif not prev_empty:  # First empty line in a sequence - keep it
+                            cleaned_lines.append('')
+                            prev_empty = True
+                    
+                    cleaned_text = '\n'.join(cleaned_lines)
+                    all_text += f"\n\n{'='*60}\nDOCUMENT: {file_info['name']}\n{'='*60}\n{cleaned_text}\n"
+                    print(f"✅ Extracted {len(cleaned_text)} characters from {file_info['name']}")
+                else:
+                    print(f"⚠️ Warning: No text extracted from {file_info['name']} (extracted text length: {len(text) if text else 0})")
                 except Exception as e:
                     print(f"❌ Error extracting text from {file_info['name']}: {e}")
                     import traceback
