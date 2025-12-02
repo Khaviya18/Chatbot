@@ -431,6 +431,11 @@ header p {
     background: linear-gradient(135deg, var(--primary), var(--secondary));
 }
 
+.message.assistant .message-avatar,
+.message .message-avatar {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+}
+
 .message.assistant .message-avatar {
     background: var(--surface-light);
 }

@@ -51,6 +51,8 @@ function setupEventListeners() {
     // Chat input
     chatInput.addEventListener('input', () => {
         autoResize(chatInput);
+        // Enable/disable send button based on input
+        sendBtn.disabled = !chatInput.value.trim();
         sendBtn.disabled = !chatInput.value.trim();
     });
 
@@ -263,6 +265,9 @@ async function sendMessage() {
     } catch (error) {
         removeTypingIndicator(typingId);
         addMessage('assistant', `Error: ${error.message}`);
+    } finally {
+        // Re-enable send button
+        sendBtn.disabled = !chatInput.value.trim();
     }
 }
 
