@@ -297,7 +297,7 @@ def chat():
                 
             try:
                 text = extract_text_from_file(content, file_info['name'])
-                    if text and text.strip():
+                if text and text.strip():
                         # Clean text: remove excessive whitespace but preserve paragraph structure
                         lines = text.split('\n')
                         cleaned_lines = []
