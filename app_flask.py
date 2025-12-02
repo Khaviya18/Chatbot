@@ -7,6 +7,14 @@ from werkzeug.utils import secure_filename
 from cloudinary_storage import CloudinaryStorage
 from pypdf import PdfReader
 import io
+from user_memory import (
+    load_memory, save_memory, add_to_conversation, 
+    get_recent_conversation_context, format_memory_for_prompt,
+    extract_user_info_from_conversation
+)
+import json
+import re
+import re
 
 # Load environment variables
 load_dotenv()
@@ -111,8 +119,8 @@ def extract_text_from_file(file_content, filename):
             # If extraction seems empty, try alternative method
             if not text.strip():
                 print(f"Warning: PDF extraction returned empty text for {filename}, trying alternative method")
-                text = ""
-                for page in pdf_reader.pages:
+            text = ""
+            for page in pdf_reader.pages:
                     try:
                         # Try extracting with layout preservation
                         page_text = page.extract_text(extraction_mode="layout")
@@ -128,7 +136,7 @@ def extract_text_from_file(file_content, filename):
     else:
         # For text files, decode with error handling
         try:
-            return file_content.decode('utf-8', errors='ignore')
+        return file_content.decode('utf-8', errors='ignore')
         except:
             try:
                 return file_content.decode('latin-1', errors='ignore')
@@ -161,8 +169,8 @@ def upload_file():
             try:
                 if use_cloudinary and storage:
                     # Upload to Cloudinary
-                    storage.upload_file(file, filename)
-                    uploaded.append(filename)
+                storage.upload_file(file, filename)
+                uploaded.append(filename)
                 else:
                     # Save to local storage
                     file_path = os.path.join(DATA_DIR, filename)
@@ -188,8 +196,8 @@ def list_files():
         if os.path.exists(DATA_DIR):
             files = [f for f in os.listdir(DATA_DIR) 
                     if os.path.isfile(os.path.join(DATA_DIR, f)) and not f.startswith('.')]
-        else:
-            files = []
+    else:
+        files = []
     
     return jsonify({'files': files})
 
@@ -198,7 +206,7 @@ def delete_file(filename):
     """Delete a file from Cloudinary or local storage"""
     try:
         if use_cloudinary and storage:
-            storage.delete_file(filename)
+        storage.delete_file(filename)
         else:
             # Delete from local storage
             file_path = os.path.join(DATA_DIR, secure_filename(filename))
@@ -227,15 +235,15 @@ def reindex():
         else:
             file_count = 0
     
-    return jsonify({
-        'message': 'Index refreshed',
+        return jsonify({
+            'message': 'Index refreshed',
         'file_count': file_count,
         'document_count': file_count
-    })
+        })
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    """Chat with documents using Gemini"""
+    """Personalized AI Assistant Chat - learns about user and provides personalized responses"""
     if not model:
         return jsonify({'error': 'Gemini API not configured'}), 500
     
@@ -244,6 +252,11 @@ def chat():
     
     if not query:
         return jsonify({'error': 'No query provided'}), 400
+    
+    # Load user memory and conversation history
+    user_memory = load_memory()
+    conversation_context = get_recent_conversation_context(max_turns=5)
+    memory_summary = format_memory_for_prompt(user_memory)
     
     # Normalize and enhance the query
     enhanced_query = normalize_query(query)
@@ -258,32 +271,32 @@ def chat():
         
         # Get all files from Cloudinary or local storage
         if use_cloudinary and storage:
-            cloud_files = storage.list_files()
+        cloud_files = storage.list_files()
             file_list = ", ".join([f['name'] for f in cloud_files])
             file_count = len(cloud_files)
+        
+        if not cloud_files:
+            return jsonify({'error': 'No documents available. Please upload files first.'}), 400
+        
+        # Download and extract text from all files
+        for file_info in cloud_files:
+            import requests
+            print(f"Downloading {file_info['name']} from {file_info['url']}")
+            response = requests.get(file_info['url'])
             
-            if not cloud_files:
-                return jsonify({'error': 'No documents available. Please upload files first.'}), 400
+            if response.status_code != 200:
+                print(f"Failed to download {file_info['name']}: Status {response.status_code}")
+                continue
+                
+            content = response.content
+            print(f"Downloaded {len(content)} bytes")
             
-            # Download and extract text from all files
-            for file_info in cloud_files:
-                import requests
-                print(f"Downloading {file_info['name']} from {file_info['url']}")
-                response = requests.get(file_info['url'])
+            if not content:
+                print(f"Warning: Empty content for {file_info['name']}")
+                continue
                 
-                if response.status_code != 200:
-                    print(f"Failed to download {file_info['name']}: Status {response.status_code}")
-                    continue
-                    
-                content = response.content
-                print(f"Downloaded {len(content)} bytes")
-                
-                if not content:
-                    print(f"Warning: Empty content for {file_info['name']}")
-                    continue
-                    
-                try:
-                    text = extract_text_from_file(content, file_info['name'])
+            try:
+                text = extract_text_from_file(content, file_info['name'])
                     if text and text.strip():
                         # Clean text: remove excessive whitespace but preserve paragraph structure
                         lines = text.split('\n')
@@ -349,11 +362,11 @@ def chat():
                         print(f"✅ Extracted {len(cleaned_text)} characters from {filename}")
                     else:
                         print(f"⚠️ Warning: No text extracted from {filename}")
-                except Exception as e:
+            except Exception as e:
                     print(f"❌ Error reading {filename}: {e}")
                     import traceback
                     traceback.print_exc()
-                    continue
+                continue
         
         # Special handling for "what is the content" queries
         query_lower = query.strip().lower()
@@ -378,8 +391,20 @@ def chat():
                 error_msg += "- Checking if the files contain readable text"
                 return jsonify({'response': error_msg})
         
-        # Create a professional-grade prompt with advanced reasoning
-        prompt = f"""You are an expert document analysis assistant with professional-grade accuracy. Your task is to answer questions based EXCLUSIVELY on the provided documents.
+        # Create personalized AI assistant prompt
+        # Determine if this is a document question or general conversation
+        is_document_query = bool(all_text and all_text.strip() and file_count > 0)
+        
+        if is_document_query:
+            # Document-based question - use hybrid approach
+            prompt = f"""You are a friendly, personalized AI assistant (like Snapchat's My AI) who helps users with their documents while maintaining a warm, conversational personality.
+
+═══════════════════════════════════════════════════════════════
+ABOUT THE USER (Remember and use this information):
+{memory_summary if memory_summary != "No previous information about the user." else "This is a new conversation. Learn about the user naturally."}
+
+RECENT CONVERSATION CONTEXT:
+{conversation_context if conversation_context else "No recent conversation history."}
 
 ═══════════════════════════════════════════════════════════════
 DOCUMENTS AVAILABLE ({file_count} file(s)):
@@ -391,80 +416,72 @@ DOCUMENT CONTENT:
 
 ═══════════════════════════════════════════════════════════════
 USER QUESTION: {query}
-ENHANCED UNDERSTANDING: {enhanced_query}
 ═══════════════════════════════════════════════════════════════
 
-PROFESSIONAL ANALYSIS PROTOCOL:
+YOUR PERSONALITY & BEHAVIOR:
+- Be friendly, warm, and conversational (like talking to a friend)
+- Use the user's name if you know it
+- Reference previous conversations when relevant
+- Show genuine interest in the user
+- Be helpful and supportive
+- Use emojis occasionally (but not excessively)
+- Keep responses natural and engaging
 
-STEP 1 - QUERY UNDERSTANDING:
-- Parse the question carefully to understand what information is being requested
-- Identify key entities: names, dates, skills, qualifications, experiences, achievements, etc.
-- Recognize question variations: "academics" = "education" = "qualifications" = "academic background"
-- Understand context: "here" = "in these documents", "the person" = "the subject of the document"
+HOW TO RESPOND:
+1. If the question is about the documents, answer using the document content
+2. If the question is personal/general, respond naturally as a friend would
+3. Learn about the user from their messages and remember important details
+4. Personalize your response based on what you know about the user
+5. If you learn something new about the user, acknowledge it naturally
 
-STEP 2 - COMPREHENSIVE SEARCH:
-- Search through ALL document content systematically
-- Look for exact matches AND semantic equivalents
-- Check all sections: headers, body text, lists, tables, etc.
-- For resumes/CVs, search: Education, Academics, Qualifications, Experience, Work History, Skills, Achievements, Projects, Certifications, etc.
-- Consider alternative phrasings and synonyms
-
-STEP 3 - INFORMATION EXTRACTION:
-- Extract ALL relevant information, not just the first match
-- Look for related context that might answer the question
-- If asking about a category (like "academics"), find ALL items in that category
-- If asking about a person, find their name in multiple places (header, signature, etc.)
-
-STEP 4 - ANSWER FORMULATION:
-- Provide complete, accurate answers based on the extracted information
-- If multiple pieces of information exist, include all relevant details
-- Format answers clearly and professionally
-- Use bullet points or lists when appropriate
-- Cite which document the information came from if multiple documents exist
-
-STEP 5 - VERIFICATION:
-- Double-check that your answer is supported by the document content
-- Ensure you haven't missed any relevant information
-- Verify the answer directly addresses the question asked
-
-ANSWER GUIDELINES:
-✅ DO:
-- Answer based ONLY on information found in the documents
-- Be thorough and comprehensive
-- Provide complete information when available
-- Use natural, professional language
-- Include relevant details and context
-- Handle question variations intelligently ("academics" = "education" = "qualifications")
-
-❌ DON'T:
-- Make up information not in the documents
-- Say "I cannot answer" unless you've thoroughly searched and found nothing
-- Skip information that's clearly present
-- Give vague or incomplete answers when details are available
-
-EXAMPLES OF GOOD ANSWERS:
-
-Question: "What is the person's name?"
-Good Answer: "The person's name is [Name] as mentioned in the document header and throughout the resume."
-
-Question: "What is academics?" or "What is here academics?"
-Good Answer: "Based on the Education/Academics section: [List all academic qualifications, degrees, institutions, dates, etc. found in the documents]"
-
-Question: "What skills does the person have?"
-Good Answer: "The person has the following skills: [List all skills found in Skills section, Experience section, etc.]"
+ANSWER:"""
+        else:
+            # General conversation - no documents
+            prompt = f"""You are a friendly, personalized AI assistant (like Snapchat's My AI) - a helpful friend who remembers details about the user and provides personalized, engaging conversations.
 
 ═══════════════════════════════════════════════════════════════
+ABOUT THE USER (Remember and use this information):
+{memory_summary if memory_summary != "No previous information about the user." else "This is a new conversation. Learn about the user naturally."}
 
-Now, analyze the documents and provide a professional, comprehensive answer to the user's question.
+RECENT CONVERSATION CONTEXT:
+{conversation_context if conversation_context else "No recent conversation history."}
+
+═══════════════════════════════════════════════════════════════
+USER MESSAGE: {query}
+═══════════════════════════════════════════════════════════════
+
+YOUR PERSONALITY & BEHAVIOR:
+- Be friendly, warm, and conversational (like talking to a close friend)
+- Use the user's name if you know it
+- Reference previous conversations when relevant
+- Show genuine interest in the user
+- Be helpful, supportive, and encouraging
+- Use emojis occasionally (but not excessively) - maybe 1-2 per message
+- Keep responses natural, engaging, and not too formal
+- Ask follow-up questions to learn more about the user
+- Remember important details the user shares
+
+LEARNING & MEMORY:
+- Pay attention to personal details: name, location, interests, preferences, goals, etc.
+- Remember facts about the user's life, work, hobbies, etc.
+- Note preferences and opinions the user expresses
+- Build on previous conversations naturally
+
+RESPONSE STYLE:
+- Be conversational and natural
+- Show personality and warmth
+- Be helpful and supportive
+- If the user shares something personal, acknowledge it warmly
+- If you learn something new, mention it naturally (e.g., "Oh cool, I'll remember that!")
 
 ANSWER:"""
         
-        # Professional generation configuration for accurate responses
+        # Personalized assistant generation configuration
         generation_config = {
-            "temperature": 0.3,  # Lower temperature for more accurate, focused answers
-            "top_p": 0.9,
+            "temperature": 0.8,  # Higher temperature for more creative, conversational responses
+            "top_p": 0.95,
             "top_k": 40,
-            "max_output_tokens": 4096,  # Increased for comprehensive answers
+            "max_output_tokens": 2048,
         }
         
         # Use safety settings that allow more content
@@ -481,7 +498,66 @@ ANSWER:"""
             safety_settings=safety_settings
         )
         
-        return jsonify({'response': response.text})
+        assistant_response = response.text
+        
+        # Save conversation to history
+        add_to_conversation(query, assistant_response)
+        
+        # Extract and save user information from this conversation
+        updated_memory = extract_user_info_from_conversation(query, assistant_response, user_memory)
+        if updated_memory:
+            save_memory(updated_memory)
+            print("✅ Updated user memory with new information")
+        
+        # Also use AI to extract more sophisticated information
+        try:
+            extraction_prompt = f"""Analyze this conversation and extract any important information about the user:
+
+USER: {query}
+ASSISTANT: {assistant_response}
+
+Extract and return ONLY a JSON object with any new information about the user. Include:
+- name (if mentioned)
+- location (if mentioned)
+- interests/hobbies (if mentioned)
+- preferences (if mentioned)
+- any other important facts
+
+Return ONLY valid JSON, or empty object {{}} if nothing new to extract.
+Example format: {{"name": "John", "interests": ["coding", "music"], "location": "New York"}}
+
+JSON:"""
+            
+            extraction_response = model.generate_content(
+                extraction_prompt,
+                generation_config={"temperature": 0.3, "max_output_tokens": 500}
+            )
+            
+            # Try to parse JSON from response
+            json_match = re.search(r'\{[^}]+\}', extraction_response.text)
+            if json_match:
+                extracted_data = json.loads(json_match.group())
+                if extracted_data:
+                    # Update memory with extracted data
+                    if "name" in extracted_data:
+                        user_memory["user_info"]["name"] = extracted_data["name"]
+                    if "location" in extracted_data:
+                        user_memory["user_info"]["location"] = extracted_data["location"]
+                    if "interests" in extracted_data:
+                        if "interests" not in user_memory:
+                            user_memory["interests"] = []
+                        for interest in extracted_data["interests"]:
+                            if interest not in user_memory["interests"]:
+                                user_memory["interests"].append(interest)
+                    if "preferences" in extracted_data:
+                        user_memory["preferences"].update(extracted_data["preferences"])
+                    
+                    save_memory(user_memory)
+                    print("✅ Enhanced user memory with AI-extracted information")
+        except Exception as e:
+            print(f"Note: Could not extract additional user info: {e}")
+        
+        return jsonify({'response': assistant_response})
     except Exception as e:
         error_msg = str(e)
         # Check for API key errors
