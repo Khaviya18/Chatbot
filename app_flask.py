@@ -136,7 +136,7 @@ def extract_text_from_file(file_content, filename):
     else:
         # For text files, decode with error handling
         try:
-        return file_content.decode('utf-8', errors='ignore')
+            return file_content.decode('utf-8', errors='ignore')
         except:
             try:
                 return file_content.decode('latin-1', errors='ignore')
