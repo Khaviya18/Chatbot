@@ -337,9 +337,8 @@ def chat():
                 file_list = ""
                 file_count = 0
         
-        # Only process documents if files exist
-        if file_count > 0:
-            
+        # Process local files if they exist
+        if file_count > 0 and local_files:
             for filename in local_files:
                 file_path = os.path.join(DATA_DIR, filename)
                 try:
