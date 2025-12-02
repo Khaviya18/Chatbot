@@ -136,7 +136,7 @@ def extract_text_from_file(file_content, filename):
     else:
         # For text files, decode with error handling
         try:
-        return file_content.decode('utf-8', errors='ignore')
+            return file_content.decode('utf-8', errors='ignore')
         except:
             try:
                 return file_content.decode('latin-1', errors='ignore')
@@ -169,8 +169,8 @@ def upload_file():
             try:
                 if use_cloudinary and storage:
                     # Upload to Cloudinary
-                storage.upload_file(file, filename)
-                uploaded.append(filename)
+                    storage.upload_file(file, filename)
+                    uploaded.append(filename)
                 else:
                     # Save to local storage
                     file_path = os.path.join(DATA_DIR, filename)
@@ -206,7 +206,7 @@ def delete_file(filename):
     """Delete a file from Cloudinary or local storage"""
     try:
         if use_cloudinary and storage:
-        storage.delete_file(filename)
+            storage.delete_file(filename)
         else:
             # Delete from local storage
             file_path = os.path.join(DATA_DIR, secure_filename(filename))
@@ -271,7 +271,7 @@ def chat():
         
         # Get all files from Cloudinary or local storage
         if use_cloudinary and storage:
-        cloud_files = storage.list_files()
+            cloud_files = storage.list_files()
             file_list = ", ".join([f['name'] for f in cloud_files])
             file_count = len(cloud_files)
         
