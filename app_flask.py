@@ -136,7 +136,7 @@ def extract_text_from_file(file_content, filename):
     else:
         # For text files, decode with error handling
         try:
-            return file_content.decode('utf-8', errors='ignore')
+        return file_content.decode('utf-8', errors='ignore')
         except:
             try:
                 return file_content.decode('latin-1', errors='ignore')
@@ -169,8 +169,8 @@ def upload_file():
             try:
                 if use_cloudinary and storage:
                     # Upload to Cloudinary
-                    storage.upload_file(file, filename)
-                    uploaded.append(filename)
+                storage.upload_file(file, filename)
+                uploaded.append(filename)
                 else:
                     # Save to local storage
                     file_path = os.path.join(DATA_DIR, filename)
@@ -196,8 +196,8 @@ def list_files():
         if os.path.exists(DATA_DIR):
             files = [f for f in os.listdir(DATA_DIR) 
                     if os.path.isfile(os.path.join(DATA_DIR, f)) and not f.startswith('.')]
-        else:
-            files = []
+    else:
+        files = []
     
     return jsonify({'files': files})
 
@@ -206,7 +206,7 @@ def delete_file(filename):
     """Delete a file from Cloudinary or local storage"""
     try:
         if use_cloudinary and storage:
-            storage.delete_file(filename)
+        storage.delete_file(filename)
         else:
             # Delete from local storage
             file_path = os.path.join(DATA_DIR, secure_filename(filename))
@@ -269,14 +269,17 @@ def chat():
         all_text = ""
         file_count = 0
         
-        # Get all files from Cloudinary or local storage
+        # Get all files from Cloudinary or local storage (optional - allow chat without documents)
         if use_cloudinary and storage:
-            cloud_files = storage.list_files()
-            file_list = ", ".join([f['name'] for f in cloud_files])
-            file_count = len(cloud_files)
+        cloud_files = storage.list_files()
+            file_list = ", ".join([f['name'] for f in cloud_files]) if cloud_files else ""
+            file_count = len(cloud_files) if cloud_files else 0
+        else:
+            cloud_files = None
+            file_list = ""
+            file_count = 0
         
-        if not cloud_files:
-            return jsonify({'error': 'No documents available. Please upload files first.'}), 400
+        # Allow chat without documents - files are optional for general conversation
         
         # Download and extract text from all files
         for file_info in cloud_files:
@@ -323,17 +326,19 @@ def chat():
                 traceback.print_exc()
                 continue
         else:
-            # Use local storage
-            if not os.path.exists(DATA_DIR):
-                return jsonify({'error': 'No documents available. Please upload files first.'}), 400
-            
-            local_files = [f for f in os.listdir(DATA_DIR) 
-                          if os.path.isfile(os.path.join(DATA_DIR, f)) and not f.startswith('.')]
-            file_list = ", ".join(local_files)
-            file_count = len(local_files)
-            
-            if not local_files:
-                return jsonify({'error': 'No documents available. Please upload files first.'}), 400
+            # Use local storage (optional - allow chat without documents)
+            if os.path.exists(DATA_DIR):
+                local_files = [f for f in os.listdir(DATA_DIR) 
+                              if os.path.isfile(os.path.join(DATA_DIR, f)) and not f.startswith('.')]
+                file_list = ", ".join(local_files) if local_files else ""
+                file_count = len(local_files) if local_files else 0
+            else:
+                local_files = []
+                file_list = ""
+                file_count = 0
+        
+        # Only process documents if files exist
+        if file_count > 0:
             
             for filename in local_files:
                 file_path = os.path.join(DATA_DIR, filename)
