@@ -169,8 +169,8 @@ def upload_file():
             try:
                 if use_cloudinary and storage:
                     # Upload to Cloudinary
-                storage.upload_file(file, filename)
-                uploaded.append(filename)
+                    storage.upload_file(file, filename)
+                    uploaded.append(filename)
                 else:
                     # Save to local storage
                     file_path = os.path.join(DATA_DIR, filename)
@@ -206,7 +206,7 @@ def delete_file(filename):
     """Delete a file from Cloudinary or local storage"""
     try:
         if use_cloudinary and storage:
-        storage.delete_file(filename)
+            storage.delete_file(filename)
         else:
             # Delete from local storage
             file_path = os.path.join(DATA_DIR, secure_filename(filename))
@@ -286,9 +286,6 @@ def chat():
                 import requests
                 print(f"Downloading {file_info['name']} from {file_info['url']}")
                 response = requests.get(file_info['url'])
-            
-            if response.status_code != 200:
-                print(f"Failed to download {file_info['name']}: Status {response.status_code}")
                 continue
                 
             content = response.content
