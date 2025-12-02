@@ -13,11 +13,14 @@ const sendBtn = document.getElementById('sendBtn');
 
 // State
 let hasIndex = false;
+let isInitialized = false;
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
     loadFiles();
     setupEventListeners();
+    updateChatState(); // Enable chat immediately
+    isInitialized = true;
 });
 
 // Event Listeners
@@ -60,6 +63,14 @@ function setupEventListeners() {
 
     // Send button
     sendBtn.addEventListener('click', sendMessage);
+    
+    // Attach file button
+    const attachBtn = document.getElementById('attachBtn');
+    if (attachBtn) {
+        attachBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+    }
 }
 
 // Auto-resize textarea
@@ -111,9 +122,16 @@ async function loadFiles() {
 
         displayFiles(data.files);
         hasIndex = data.files.length > 0;
-        updateChatState();
+        if (isInitialized) {
+            updateChatState();
+        }
     } catch (error) {
         console.error('Failed to load files:', error);
+        // Don't block chat if file loading fails
+        hasIndex = false;
+        if (isInitialized) {
+            updateChatState();
+        }
     }
 }
 
@@ -199,14 +217,15 @@ async function reindexFiles() {
 
 // Chat Functions
 function updateChatState() {
+    // Always enable chat - files are optional
+    chatInput.disabled = false;
     if (hasIndex) {
-        chatInput.disabled = false;
-        chatInput.placeholder = 'Ask something from your documents...';
+        chatInput.placeholder = 'Type a message or ask about your documents...';
     } else {
-        chatInput.disabled = true;
-        chatInput.placeholder = 'Upload documents and reindex to start chatting...';
-        sendBtn.disabled = true;
+        chatInput.placeholder = 'Type a message...';
     }
+    // Enable send button if there's text
+    sendBtn.disabled = !chatInput.value.trim();
 }
 
 async function sendMessage() {
@@ -257,17 +276,40 @@ function addMessage(role, content) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${role}`;
 
-    const avatar = role === 'user' ? '👤' : '🤖';
+    const avatar = role === 'user' ? '👤' : '✨';
+
+    // Format content with markdown-like support (basic)
+    const formattedContent = formatMessageContent(content);
 
     messageDiv.innerHTML = `
         <div class="message-avatar">${avatar}</div>
         <div class="message-content">
-            <p>${escapeHtml(content)}</p>
+            ${formattedContent}
         </div>
     `;
 
     chatMessages.appendChild(messageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function formatMessageContent(content) {
+    // Basic markdown formatting
+    let formatted = escapeHtml(content);
+    
+    // Convert **bold** to <strong>
+    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    
+    // Convert *italic* to <em>
+    formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
+    
+    // Convert line breaks
+    formatted = formatted.replace(/\n/g, '<br>');
+    
+    // Convert bullet points
+    formatted = formatted.replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>');
+    formatted = formatted.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
+    
+    return `<p>${formatted}</p>`;
 }
 
 function addTypingIndicator() {
