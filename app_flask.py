@@ -317,11 +317,11 @@ def chat():
                     print(f"✅ Extracted {len(cleaned_text)} characters from {file_info['name']}")
                 else:
                     print(f"⚠️ Warning: No text extracted from {file_info['name']} (extracted text length: {len(text) if text else 0})")
-                except Exception as e:
-                    print(f"❌ Error extracting text from {file_info['name']}: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    continue
+            except Exception as e:
+                print(f"❌ Error extracting text from {file_info['name']}: {e}")
+                import traceback
+                traceback.print_exc()
+                continue
         else:
             # Use local storage
             if not os.path.exists(DATA_DIR):
