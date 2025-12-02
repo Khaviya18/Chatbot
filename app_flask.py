@@ -197,7 +197,7 @@ def list_files():
             files = [f for f in os.listdir(DATA_DIR) 
                     if os.path.isfile(os.path.join(DATA_DIR, f)) and not f.startswith('.')]
         else:
-        files = []
+            files = []
     
     return jsonify({'files': files})
 
