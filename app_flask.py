@@ -196,8 +196,8 @@ def list_files():
         if os.path.exists(DATA_DIR):
             files = [f for f in os.listdir(DATA_DIR) 
                     if os.path.isfile(os.path.join(DATA_DIR, f)) and not f.startswith('.')]
-    else:
-        files = []
+        else:
+            files = []
     
     return jsonify({'files': files})
 
@@ -286,16 +286,19 @@ def chat():
                 import requests
                 print(f"Downloading {file_info['name']} from {file_info['url']}")
                 response = requests.get(file_info['url'])
-                continue
                 
-            content = response.content
-            print(f"Downloaded {len(content)} bytes")
-            
-            if not content:
-                print(f"Warning: Empty content for {file_info['name']}")
-                continue
+                if response.status_code != 200:
+                    print(f"Failed to download {file_info['name']}: Status {response.status_code}")
+                    continue
+                    
+                content = response.content
+                print(f"Downloaded {len(content)} bytes")
                 
-            try:
+                if not content:
+                    print(f"Warning: Empty content for {file_info['name']}")
+                    continue
+                    
+                try:
                 text = extract_text_from_file(content, file_info['name'])
                 if text and text.strip():
                     # Clean text: remove excessive whitespace but preserve paragraph structure
