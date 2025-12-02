@@ -362,11 +362,11 @@ def chat():
                         print(f"✅ Extracted {len(cleaned_text)} characters from {filename}")
                     else:
                         print(f"⚠️ Warning: No text extracted from {filename}")
-            except Exception as e:
+                except Exception as e:
                     print(f"❌ Error reading {filename}: {e}")
                     import traceback
                     traceback.print_exc()
-                continue
+                    continue
         
         # Special handling for "what is the content" queries
         query_lower = query.strip().lower()
