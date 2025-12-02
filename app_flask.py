@@ -136,7 +136,7 @@ def extract_text_from_file(file_content, filename):
     else:
         # For text files, decode with error handling
         try:
-        return file_content.decode('utf-8', errors='ignore')
+            return file_content.decode('utf-8', errors='ignore')
         except:
             try:
                 return file_content.decode('latin-1', errors='ignore')
@@ -283,9 +283,9 @@ def chat():
         if file_count > 0 and cloud_files:
             # Download and extract text from all files
             for file_info in cloud_files:
-            import requests
-            print(f"Downloading {file_info['name']} from {file_info['url']}")
-            response = requests.get(file_info['url'])
+                import requests
+                print(f"Downloading {file_info['name']} from {file_info['url']}")
+                response = requests.get(file_info['url'])
             
             if response.status_code != 200:
                 print(f"Failed to download {file_info['name']}: Status {response.status_code}")
