@@ -8,7 +8,6 @@ from llama_index.core import (
     StorageContext,
     load_index_from_storage
 )
-from llama_index.llms.ollama import Ollama
 from llama_index.llms.gemini import Gemini
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 import google.generativeai as genai
@@ -20,7 +19,6 @@ load_dotenv()
 # --- Configuration ---
 DATA_DIR = "./data"
 PERSIST_DIR = "./storage"
-OLLAMA_MODEL = "llama3.2:1b"
 EMBED_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
 
 st.set_page_config(page_title="Document Chatbot", layout="wide")
@@ -31,24 +29,9 @@ with st.sidebar:
     st.header("Model Selection")
     
     # Model choice
-    # Force Gemini Cloud as the only model
+    # Only Gemini Cloud is available
     model_choice = "Gemini (Cloud)"
-    st.info("Using Gemini (Cloud) model. Ollama option is disabled.")
-    
-    # Show relevant instructions based on choice
-    if model_choice == "Local (Ollama)":
-        # Check if Ollama is running
-        import subprocess
-        try:
-            result = subprocess.run(["pgrep", "-x", "ollama"], capture_output=True)
-            if result.returncode == 0:
-                st.success("Ollama is running")
-            else:
-                st.warning("Ollama is not running")
-                st.info("Run `./start_ollama.sh` in your terminal to start Ollama.")
-        except Exception as e:
-            st.error(f"Ollama check failed: {e}")
-            st.info("Install Ollama with: `brew install ollama`")
+    st.info("Using Gemini (Cloud) model for document Q&A.")
     
     # Gemini API key is retrieved from environment variables (backend) for security
     if model_choice == "Gemini (Cloud)":
@@ -63,10 +46,7 @@ with st.sidebar:
     st.divider()
     st.subheader("Current Settings")
     
-    if model_choice == "Local (Ollama)":
-        st.info(f"LLM: Ollama ({OLLAMA_MODEL})")
-    else:
-        st.info(f"LLM: Gemini (gemini-2.5-flash)")
+    st.info(f"LLM: Gemini (gemini-2.5-flash)")
     
     st.info(f"Embeddings: {EMBED_MODEL}")
     

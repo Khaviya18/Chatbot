@@ -93,34 +93,8 @@ if [ "$NEEDS_INSTALL" = true ]; then
     pip install -r requirements.txt
 fi
 
-# 4. Check for Ollama (Optional - only needed for local model)
 echo ""
-echo "Checking for Ollama..."
-
-if command -v ollama &> /dev/null; then
-    if pgrep -x "ollama" > /dev/null; then
-        echo "✓ Ollama service is running"
-        
-        # Check if model is available
-        REQUIRED_MODEL="llama3.2:1b"
-        if ollama list | grep -q "$REQUIRED_MODEL"; then
-            echo "✓ Model '$REQUIRED_MODEL' is available"
-        else
-            echo "⚠️  Model '$REQUIRED_MODEL' not found"
-            echo "   To download: ollama pull $REQUIRED_MODEL"
-        fi
-    else
-        echo "ℹ️  Ollama is installed but not running"
-        echo "   To use local model, run: ./start_ollama.sh"
-    fi
-else
-    echo "ℹ️  Ollama not installed (not needed if using Gemini)"
-    echo "   To install: brew install ollama"
-fi
-
-echo ""
-echo "📌 Note: You can choose between Local (Ollama) or Gemini in the app sidebar"
-
+echo "✓ Setup complete. Using Gemini API for chat."
 
 # Cleanup function to remove uploaded data when script exits
 cleanup() {
