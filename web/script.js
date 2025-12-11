@@ -437,3 +437,15 @@ style.textContent = `
     }
 `;
 document.head.appendChild(style);
+
+// Session Cleanup on Tab Close
+window.addEventListener('beforeunload', () => {
+    // Use sendBeacon for reliable background request on unload
+    // This calls /clear-session to delete local files
+    navigator.sendBeacon('/clear-session');
+});
+
+// Also try to clear on page hide (mobile/modern browsers)
+window.addEventListener('pagehide', () => {
+    navigator.sendBeacon('/clear-session');
+});
