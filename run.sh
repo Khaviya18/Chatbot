@@ -71,6 +71,8 @@ else
     
     if [ "$venv_major" -eq 3 ] && [ "$venv_minor" -ge 9 ] && [ "$venv_minor" -le 12 ]; then
         echo "Using existing virtual environment (Python $venv_version)..."
+        # Always install/update dependencies for Streamlit app
+        NEEDS_INSTALL=true
     else
         echo "Existing venv uses incompatible Python $venv_version. Recreating..."
         deactivate 2>/dev/null || true
