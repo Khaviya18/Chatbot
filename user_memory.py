@@ -152,3 +152,4 @@ def extract_user_info_from_conversation(user_message: str, assistant_message: st
     
     return memory if updated else None
 
+

@@ -14,7 +14,7 @@ from user_memory import (
 )
 import json
 import re
-import re
+import time
 
 # Load environment variables
 load_dotenv()
@@ -51,25 +51,51 @@ else:
     print("⚠️  Cloudinary not configured")
 
 # Initialize Gemini
-# Option 1: Try environment variable first
+# Get API key from environment variable
 api_key = os.getenv("GEMINI_API_KEY")
 
-# Option 2: Fallback to hardcoded key
-if not api_key:
-    api_key = "AIzaSyCC9h2yMTJiAJKUbCLkgyai5RZWAmgRoFY"
-
-if api_key:
-    genai.configure(api_key=api_key)
-    # Use stable 2.0 Flash model (verified available)
-    model = genai.GenerativeModel('gemini-2.0-flash')
-    print("✅ Gemini initialized")
+if api_key and api_key.strip() and api_key != "your_api_key_here":
+    try:
+        genai.configure(api_key=api_key)
+        # Use stable 2.0 Flash model (verified available)
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        print("✅ Gemini initialized")
+    except Exception as e:
+        print(f"⚠️  Error initializing Gemini: {e}")
+        model = None
 else:
     model = None
-    print("⚠️  Gemini API key not configured - please set GEMINI_API_KEY env var or hardcode it in app_flask.py")
+    print("⚠️  Gemini API key not configured - please set GEMINI_API_KEY in .env file")
+    print("   Get a free API key from: https://aistudio.google.com/apikey")
 
 def allowed_file(filename):
     """Check if file extension is allowed"""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def generate_with_retry(model, prompt, generation_config, safety_settings, max_retries=3):
+    """Generate content with retry logic for rate limit errors"""
+    for attempt in range(max_retries):
+        try:
+            response = model.generate_content(
+                prompt,
+                generation_config=generation_config,
+                safety_settings=safety_settings
+            )
+            return response, None
+        except Exception as e:
+            error_msg = str(e)
+            is_rate_limit = '429' in error_msg or 'quota' in error_msg.lower() or 'rate limit' in error_msg.lower()
+            
+            if is_rate_limit and attempt < max_retries - 1:
+                # Exponential backoff: wait 2^attempt seconds (2, 4, 8 seconds)
+                wait_time = 2 ** attempt
+                print(f"⚠️ Rate limit hit, retrying in {wait_time} seconds... (attempt {attempt + 1}/{max_retries})")
+                time.sleep(wait_time)
+                continue
+            else:
+                return None, e
+    
+    return None, Exception("Max retries exceeded")
 
 def normalize_query(query):
     """Normalize and enhance query understanding"""
@@ -99,39 +125,91 @@ def normalize_query(query):
     return enhanced_query
 
 def extract_text_from_file(file_content, filename):
-    """Extract text from PDF or text file with improved extraction"""
+    """Extract text from PDF or text file with improved extraction and multiple fallback methods"""
     if not file_content:
+        print(f"⚠️ Warning: Empty file content for {filename}")
         return ""
         
-    ext = filename.rsplit('.', 1)[1].lower()
+    ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
     
     if ext == 'pdf':
         try:
+            # Validate PDF file
+            if len(file_content) < 100:  # PDFs should be at least 100 bytes
+                print(f"⚠️ Warning: File {filename} seems too small to be a valid PDF")
+                return ""
+            
             pdf_reader = PdfReader(io.BytesIO(file_content))
+            num_pages = len(pdf_reader.pages)
+            print(f"📄 Processing PDF {filename} with {num_pages} page(s)")
+            
+            if num_pages == 0:
+                print(f"⚠️ Warning: PDF {filename} has no pages")
+                return ""
+            
+            # Method 1: Standard extraction
             text = ""
             for i, page in enumerate(pdf_reader.pages):
-                page_text = page.extract_text()
-                if page_text:
-                    # Clean up the text - remove excessive whitespace but keep structure
-                    page_text = ' '.join(page_text.split())
-                    text += page_text + "\n\n"
+                try:
+                    page_text = page.extract_text()
+                    if page_text and page_text.strip():
+                        # Clean up the text - remove excessive whitespace but keep structure
+                        cleaned = ' '.join(page_text.split())
+                        text += cleaned + "\n\n"
+                except Exception as e:
+                    print(f"⚠️ Error extracting page {i+1} from {filename}: {e}")
+                    continue
             
-            # If extraction seems empty, try alternative method
-            if not text.strip():
-                print(f"Warning: PDF extraction returned empty text for {filename}, trying alternative method")
-            text = ""
-            for page in pdf_reader.pages:
+            # Method 2: If standard extraction failed or returned little text, try layout mode
+            if not text.strip() or len(text.strip()) < 50:
+                print(f"⚠️ Standard extraction returned little/no text for {filename}, trying layout mode...")
+                layout_text = ""
+                for i, page in enumerate(pdf_reader.pages):
                     try:
                         # Try extracting with layout preservation
                         page_text = page.extract_text(extraction_mode="layout")
-                        if page_text:
-                            text += page_text + "\n\n"
-                    except:
-                        pass
+                        if page_text and page_text.strip():
+                            cleaned = ' '.join(page_text.split())
+                            layout_text += cleaned + "\n\n"
+                    except Exception as e:
+                        # Layout mode might not be supported, try alternative
+                        try:
+                            page_text = page.extract_text()
+                            if page_text and page_text.strip():
+                                cleaned = ' '.join(page_text.split())
+                                layout_text += cleaned + "\n\n"
+                        except:
+                            pass
+                
+                # Use layout text if it's better than standard extraction
+                if len(layout_text.strip()) > len(text.strip()):
+                    text = layout_text
             
-            return text.strip()
+            # Method 3: If still no text, try extracting raw text
+            if not text.strip():
+                print(f"⚠️ Trying raw text extraction for {filename}...")
+                for i, page in enumerate(pdf_reader.pages):
+                    try:
+                        # Try to get any text from the page
+                        if hasattr(page, 'extract_text'):
+                            page_text = page.extract_text()
+                            if page_text:
+                                text += page_text + "\n\n"
+                    except:
+                        continue
+            
+            extracted_text = text.strip()
+            if extracted_text:
+                print(f"✅ Successfully extracted {len(extracted_text)} characters from {filename}")
+            else:
+                print(f"❌ Failed to extract text from {filename} - PDF may be image-based or corrupted")
+            
+            return extracted_text
+            
         except Exception as e:
-            print(f"PDF extraction error for {filename}: {e}")
+            print(f"❌ PDF extraction error for {filename}: {e}")
+            import traceback
+            traceback.print_exc()
             return ""
     else:
         # For text files, decode with error handling
@@ -141,7 +219,10 @@ def extract_text_from_file(file_content, filename):
             try:
                 return file_content.decode('latin-1', errors='ignore')
             except:
-                return str(file_content)
+                try:
+                    return file_content.decode('cp1252', errors='ignore')
+                except:
+                    return str(file_content)
 
 # Routes
 @app.route('/')
@@ -223,23 +304,31 @@ def delete_file(filename):
 @app.route('/reindex', methods=['POST'])
 def reindex():
     """Reindex - just return success since we query on-demand"""
-    if use_cloudinary and storage:
-        files = storage.list_files()
-        file_count = len(files)
-    else:
-        # Count local files
-        if os.path.exists(DATA_DIR):
-            files = [f for f in os.listdir(DATA_DIR) 
-                    if os.path.isfile(os.path.join(DATA_DIR, f)) and not f.startswith('.')]
-            file_count = len(files)
+    try:
+        if use_cloudinary and storage:
+            files = storage.list_files()
+            file_count = len(files) if files else 0
         else:
-            file_count = 0
-    
+            # Count local files
+            if os.path.exists(DATA_DIR):
+                files = [f for f in os.listdir(DATA_DIR) 
+                        if os.path.isfile(os.path.join(DATA_DIR, f)) and not f.startswith('.')]
+                file_count = len(files)
+            else:
+                file_count = 0
+        
         return jsonify({
             'message': 'Index refreshed',
-        'file_count': file_count,
-        'document_count': file_count
+            'file_count': file_count,
+            'document_count': file_count
         })
+    except Exception as e:
+        print(f"❌ Error in reindex: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': f'Reindex failed: {str(e)}'
+        }), 500
 
 @app.route('/chat', methods=['POST'])
 def chat():
@@ -342,22 +431,45 @@ def chat():
             for filename in local_files:
                 file_path = os.path.join(DATA_DIR, filename)
                 try:
+                    # Validate file exists and is readable
+                    if not os.path.exists(file_path):
+                        print(f"⚠️ Warning: File {filename} does not exist at {file_path}")
+                        continue
+                    
+                    if not os.path.isfile(file_path):
+                        print(f"⚠️ Warning: {filename} is not a regular file")
+                        continue
+                    
+                    # Check file size
+                    file_size = os.path.getsize(file_path)
+                    if file_size == 0:
+                        print(f"⚠️ Warning: File {filename} is empty")
+                        continue
+                    
+                    if file_size > 50 * 1024 * 1024:  # 50MB limit
+                        print(f"⚠️ Warning: File {filename} is too large ({file_size} bytes), skipping")
+                        continue
+                    
                     with open(file_path, 'rb') as f:
                         content = f.read()
                     
+                    if not content:
+                        print(f"⚠️ Warning: Could not read content from {filename}")
+                        continue
+                    
                     text = extract_text_from_file(content, filename)
                     if text and text.strip():
-                        # Clean text
+                        # Clean text: remove excessive whitespace but preserve paragraph structure
                         lines = text.split('\n')
                         cleaned_lines = []
                         prev_empty = False
                         
                         for line in lines:
                             stripped = line.strip()
-                            if stripped:
+                            if stripped:  # Non-empty line
                                 cleaned_lines.append(stripped)
                                 prev_empty = False
-                            elif not prev_empty:
+                            elif not prev_empty:  # First empty line in a sequence - keep it
                                 cleaned_lines.append('')
                                 prev_empty = True
                         
@@ -365,7 +477,10 @@ def chat():
                         all_text += f"\n\n{'='*60}\nDOCUMENT: {filename}\n{'='*60}\n{cleaned_text}\n"
                         print(f"✅ Extracted {len(cleaned_text)} characters from {filename}")
                     else:
-                        print(f"⚠️ Warning: No text extracted from {filename}")
+                        print(f"⚠️ Warning: No text extracted from {filename} - file may be image-based, corrupted, or empty")
+                except PermissionError as e:
+                    print(f"❌ Permission error reading {filename}: {e}")
+                    continue
                 except Exception as e:
                     print(f"❌ Error reading {filename}: {e}")
                     import traceback
@@ -400,7 +515,7 @@ def chat():
         is_document_query = bool(all_text and all_text.strip() and file_count > 0)
         
         if is_document_query:
-            # Document-based question - use hybrid approach
+            # Document-based question - use hybrid approach with emphasis on accuracy
             prompt = f"""You are a friendly, personalized AI assistant (like Snapchat's My AI) who helps users with their documents while maintaining a warm, conversational personality.
 
 ═══════════════════════════════════════════════════════════════
@@ -422,6 +537,14 @@ DOCUMENT CONTENT:
 USER QUESTION: {query}
 ═══════════════════════════════════════════════════════════════
 
+CRITICAL INSTRUCTIONS FOR ACCURACY:
+1. **ALWAYS base your answer on the document content provided above**
+2. **Quote or reference specific information from the documents when answering**
+3. **If the answer is not in the documents, clearly state: "I cannot find this information in the provided documents, but..." and then provide a helpful general response if appropriate**
+4. **Be precise and accurate - do not make up information that isn't in the documents**
+5. **If you're unsure about something, say so rather than guessing**
+6. **When citing information, mention which document it came from if multiple documents are available**
+
 YOUR PERSONALITY & BEHAVIOR:
 - Be friendly, warm, and conversational (like talking to a friend)
 - Use the user's name if you know it
@@ -432,11 +555,12 @@ YOUR PERSONALITY & BEHAVIOR:
 - Keep responses natural and engaging
 
 HOW TO RESPOND:
-1. If the question is about the documents, answer using the document content
-2. If the question is personal/general, respond naturally as a friend would
+1. **FIRST**: Check if the question is about the documents - if yes, answer STRICTLY using the document content provided above
+2. If the question is personal/general (not about documents), respond naturally as a friend would
 3. Learn about the user from their messages and remember important details
 4. Personalize your response based on what you know about the user
 5. If you learn something new about the user, acknowledge it naturally
+6. **IMPORTANT**: When answering document questions, be accurate and cite the source document
 
 ANSWER:"""
         else:
@@ -496,13 +620,72 @@ ANSWER:"""
             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
         ]
         
-        response = model.generate_content(
-            prompt,
-            generation_config=generation_config,
-            safety_settings=safety_settings
-        )
-        
-        assistant_response = response.text
+        try:
+            # Use retry logic for rate limit errors
+            response, api_error = generate_with_retry(
+                model, prompt, generation_config, safety_settings, max_retries=3
+            )
+            
+            if api_error:
+                raise api_error
+            
+            # Check if response was blocked or has errors
+            if not response or not hasattr(response, 'text'):
+                error_msg = "The AI response was blocked or empty. This might be due to content filters or API issues."
+                print(f"❌ Error: {error_msg}")
+                return jsonify({'error': error_msg}), 500
+            
+            # Handle potential blocking reasons
+            if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
+                if hasattr(response.prompt_feedback, 'block_reason') and response.prompt_feedback.block_reason:
+                    print(f"⚠️ Response blocked: {response.prompt_feedback.block_reason}")
+                    return jsonify({
+                        'error': f'Response was blocked: {response.prompt_feedback.block_reason}. Please try rephrasing your question.'
+                    }), 400
+            
+            assistant_response = response.text
+            
+            if not assistant_response or not assistant_response.strip():
+                error_msg = "The AI returned an empty response. Please try again."
+                print(f"❌ Error: {error_msg}")
+                return jsonify({'error': error_msg}), 500
+                
+        except Exception as api_error:
+            error_msg = str(api_error)
+            print(f"❌ Gemini API error: {error_msg}")
+            import traceback
+            traceback.print_exc()
+            
+            # Provide user-friendly error messages
+            # Check for quota exceeded first (before invalid key check)
+            if '429' in error_msg or 'quota' in error_msg.lower() or 'quota exceeded' in error_msg.lower() or 'rate limit' in error_msg.lower():
+                # Extract retry delay if available
+                retry_delay = "a few minutes"
+                if 'retry in' in error_msg.lower() or 'retry_delay' in error_msg.lower():
+                    import re
+                    delay_match = re.search(r'retry in ([\d.]+)s', error_msg.lower())
+                    if delay_match:
+                        seconds = float(delay_match.group(1))
+                        if seconds < 60:
+                            retry_delay = f"{int(seconds)} seconds"
+                        else:
+                            retry_delay = f"{int(seconds/60)} minutes"
+                
+                return jsonify({
+                    'error': f'Quota exceeded: The free tier API quota has been reached. Please wait {retry_delay} before trying again. Free tier has limited requests per day. Check your quota at https://aistudio.google.com/apikey or consider upgrading your plan.'
+                }), 429
+            elif '403' in error_msg and ('API key' in error_msg or 'invalid' in error_msg.lower() or 'revoked' in error_msg.lower()):
+                return jsonify({
+                    'error': 'API key error: Your Gemini API key is invalid or has been revoked. Please get a new key from https://aistudio.google.com/apikey and update your environment variables.'
+                }), 403
+            elif '401' in error_msg or 'unauthorized' in error_msg.lower():
+                return jsonify({
+                    'error': 'Authentication failed: Please check your GEMINI_API_KEY environment variable.'
+                }), 401
+            else:
+                return jsonify({
+                    'error': f'Error generating response: {error_msg}. Please try again or rephrase your question.'
+                }), 500
         
         # Save conversation to history
         add_to_conversation(query, assistant_response)
@@ -564,6 +747,10 @@ JSON:"""
         return jsonify({'response': assistant_response})
     except Exception as e:
         error_msg = str(e)
+        import traceback
+        traceback.print_exc()
+        print(f"❌ Unexpected error in chat endpoint: {error_msg}")
+        
         # Check for API key errors
         if '403' in error_msg or 'API key' in error_msg or 'leaked' in error_msg.lower():
             return jsonify({
@@ -573,8 +760,15 @@ JSON:"""
             return jsonify({
                 'error': 'Authentication failed: Please check your GEMINI_API_KEY environment variable.'
             }), 401
+        elif '429' in error_msg or 'quota' in error_msg.lower() or 'rate limit' in error_msg.lower():
+            return jsonify({
+                'error': 'Rate limit exceeded: Please wait a moment and try again, or check your API quota.'
+            }), 429
         else:
-            return jsonify({'error': f'Error: {error_msg}'}), 500
+            # Provide a user-friendly error message
+            return jsonify({
+                'error': f'An unexpected error occurred: {error_msg}. Please try again or contact support if the issue persists.'
+            }), 500
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5001))

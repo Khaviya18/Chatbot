@@ -103,6 +103,15 @@ async function handleFiles(files) {
             body: formData
         });
 
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Non-JSON response:', text.substring(0, 200));
+            showStatus('Upload failed: Server returned invalid response', 'error');
+            return;
+        }
+
         const data = await response.json();
 
         if (response.ok) {
@@ -112,6 +121,7 @@ async function handleFiles(files) {
             showStatus(data.error || 'Upload failed', 'error');
         }
     } catch (error) {
+        console.error('Upload error:', error);
         showStatus('Upload failed: ' + error.message, 'error');
     }
 }
@@ -120,6 +130,20 @@ async function handleFiles(files) {
 async function loadFiles() {
     try {
         const response = await fetch(`${API_URL}/files`);
+        
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Non-JSON response when loading files:', text.substring(0, 200));
+            // Don't block chat if file loading fails
+            hasIndex = false;
+            if (isInitialized) {
+                updateChatState();
+            }
+            return;
+        }
+        
         const data = await response.json();
 
         displayFiles(data.files);
@@ -163,6 +187,15 @@ async function deleteFile(filename) {
             method: 'DELETE'
         });
 
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Non-JSON response:', text.substring(0, 200));
+            showStatus('Delete failed: Server returned invalid response', 'error');
+            return;
+        }
+
         const data = await response.json();
 
         if (response.ok) {
@@ -172,6 +205,7 @@ async function deleteFile(filename) {
             showStatus(data.error || 'Delete failed', 'error');
         }
     } catch (error) {
+        console.error('Delete error:', error);
         showStatus('Delete failed: ' + error.message, 'error');
     }
 }
@@ -190,8 +224,20 @@ async function reindexFiles() {
         `;
 
         const response = await fetch(`${API_URL}/reindex`, {
-            method: 'POST'
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
         });
+
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Non-JSON response:', text.substring(0, 200));
+            showStatus('Reindex failed: Server returned invalid response. Please check the console.', 'error');
+            return;
+        }
 
         const data = await response.json();
 
@@ -203,7 +249,12 @@ async function reindexFiles() {
             showStatus(data.error || 'Reindex failed', 'error');
         }
     } catch (error) {
-        showStatus('Reindex failed: ' + error.message, 'error');
+        console.error('Reindex error:', error);
+        if (error.message.includes('JSON')) {
+            showStatus('Reindex failed: Invalid server response. Please refresh the page and try again.', 'error');
+        } else {
+            showStatus('Reindex failed: ' + error.message, 'error');
+        }
     } finally {
         reindexBtn.disabled = false;
         reindexBtn.innerHTML = `
@@ -212,7 +263,7 @@ async function reindexFiles() {
                 <polyline points="1 20 1 14 7 14"></polyline>
                 <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
             </svg>
-            Reindex
+            Refresh
         `;
     }
 }
@@ -252,6 +303,16 @@ async function sendMessage() {
             body: JSON.stringify({ query })
         });
 
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+            const text = await response.text();
+            console.error('Non-JSON response:', text.substring(0, 200));
+            removeTypingIndicator(typingId);
+            addMessage('assistant', 'Error: Server returned invalid response. Please try again.');
+            return;
+        }
+
         const data = await response.json();
 
         // Remove typing indicator
@@ -260,11 +321,16 @@ async function sendMessage() {
         if (response.ok) {
             addMessage('assistant', data.response);
         } else {
-            addMessage('assistant', `Error: ${data.error}`);
+            addMessage('assistant', `Error: ${data.error || 'Unknown error occurred'}`);
         }
     } catch (error) {
+        console.error('Chat error:', error);
         removeTypingIndicator(typingId);
-        addMessage('assistant', `Error: ${error.message}`);
+        if (error.message.includes('JSON')) {
+            addMessage('assistant', 'Error: Invalid server response. Please refresh the page and try again.');
+        } else {
+            addMessage('assistant', `Error: ${error.message}`);
+        }
     } finally {
         // Re-enable send button
         sendBtn.disabled = !chatInput.value.trim();
