@@ -10,8 +10,8 @@
     <div class="container">
         <!-- Header -->
         <header>
-            <h1>✨ My AI Assistant</h1>
-            <p>Your personalized AI friend - chat about anything or ask about your documents</p>
+            <h1>📄 Document Q&A Chatbot</h1>
+            <p>Upload documents and ask questions about their content</p>
         </header>
 
         <!-- Main Content -->
@@ -19,8 +19,8 @@
             <!-- Sidebar -->
             <aside class="sidebar">
                 <div class="section">
-                    <h2>📎 Upload Files</h2>
-                    <p class="section-description">Upload documents to ask questions about them</p>
+                    <h2>📎 Upload Documents</h2>
+                    <p class="section-description">Upload documents to ask questions about them (required)</p>
                     <div class="upload-area" id="uploadArea">
                         <input type="file" id="fileInput" multiple accept=".pdf,.txt,.md" hidden>
                         <label for="fileInput" class="upload-label">
@@ -30,10 +30,13 @@
                                 <line x1="12" y1="3" x2="12" y2="15"></line>
                             </svg>
                             <span>Click to upload or drag & drop</span>
-                            <small>PDF, TXT, MD files</small>
+                            <small>PDF, TXT, MD files (required)</small>
                         </label>
                     </div>
                     <div id="uploadStatus" class="status-message"></div>
+                    <div id="noDocsWarning" class="warning-message" style="display: none; margin-top: 10px; padding: 10px; background-color: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; color: #856404;">
+                        ⚠️ Please upload at least one document to start chatting
+                    </div>
                 </div>
 
                 <div class="section">
@@ -72,7 +75,7 @@
                     <div class="chat-header-content">
                         <div class="ai-avatar">✨</div>
                         <div>
-                            <h2>My AI Assistant</h2>
+                            <h2>RAG Document Q&A Chatbot</h2>
                             <p class="chat-status">Always here to help</p>
                         </div>
                     </div>
@@ -82,16 +85,8 @@
                     <div class="welcome-message">
                         <div class="welcome-avatar">✨</div>
                         <div class="welcome-content">
-                            <h2>Hey there! 👋</h2>
-                            <p>I'm your personalized AI assistant. You can chat with me about anything, or upload documents and ask me questions about them!</p>
-                            <div class="welcome-suggestions">
-                                <p class="suggestions-label">Try asking me:</p>
-                                <div class="suggestion-chips">
-                                    <span class="chip">What's your name?</span>
-                                    <span class="chip">Tell me a joke</span>
-                                    <span class="chip">Help me with...</span>
-                                </div>
-                            </div>
+                            <p>👋 Welcome! Please upload documents to start asking questions.</p>
+                            <p style="font-size: 0.9em; color: #666; margin-top: 10px;">This chatbot answers questions ONLY from uploaded documents.</p>
                         </div>
                     </div>
                 </div>

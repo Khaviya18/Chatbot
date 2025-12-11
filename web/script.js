@@ -19,9 +19,27 @@ let isInitialized = false;
 document.addEventListener('DOMContentLoaded', () => {
     loadFiles();
     setupEventListeners();
-    updateChatState(); // Enable chat immediately
+    updateChatState(); // Check if documents are required
     isInitialized = true;
+    
+    // Clear all data when tab/window closes
+    window.addEventListener('beforeunload', () => {
+        clearAllData();
+    });
 });
+
+// Clear all session data
+function clearAllData() {
+    // Use navigator.sendBeacon for reliable cleanup on page unload
+    const data = new FormData();
+    data.append('clear_all', 'true');
+    
+    navigator.sendBeacon(`${API_URL}/clear-session`, data);
+    
+    // Clear local storage
+    sessionStorage.clear();
+    localStorage.clear();
+}
 
 // Event Listeners
 function setupEventListeners() {
@@ -146,11 +164,11 @@ async function loadFiles() {
         
         const data = await response.json();
 
-        displayFiles(data.files);
-        hasIndex = data.files.length > 0;
-        if (isInitialized) {
-            updateChatState();
-        }
+    displayFiles(data.files);
+    hasIndex = data.files.length > 0;
+    if (isInitialized) {
+        updateChatState();
+    }
     } catch (error) {
         console.error('Failed to load files:', error);
         // Don't block chat if file loading fails
@@ -163,19 +181,28 @@ async function loadFiles() {
 
 // Display Files
 function displayFiles(files) {
+    const noDocsWarning = document.getElementById('noDocsWarning');
+    
     if (files.length === 0) {
         fileList.innerHTML = '<p class="empty-state">No files uploaded yet</p>';
-        return;
+        noDocsWarning.style.display = 'block';
+        hasIndex = false;
+    } else {
+        fileList.innerHTML = files.map(file => `
+            <div class="file-item">
+                <span class="file-name" title="${file}">${file}</span>
+                <button class="btn-delete" onclick="deleteFile('${file}')" title="Delete ${file}">
+                    ❌
+                </button>
+            </div>
+        `).join('');
+        noDocsWarning.style.display = 'none';
+        hasIndex = true;
     }
-
-    fileList.innerHTML = files.map(file => `
-        <div class="file-item">
-            <span class="file-name" title="${file}">${file}</span>
-            <button class="btn-delete" onclick="deleteFile('${file}')" title="Delete ${file}">
-                ❌
-            </button>
-        </div>
-    `).join('');
+    
+    if (isInitialized) {
+        updateChatState();
+    }
 }
 
 // Delete File
@@ -268,17 +295,24 @@ async function reindexFiles() {
     }
 }
 
-// Chat Functions
+// Update Chat State
 function updateChatState() {
-    // Always enable chat - files are optional
-    chatInput.disabled = false;
-    if (hasIndex) {
-        chatInput.placeholder = 'Type a message or ask about your documents...';
+    // Require documents for chat
+    if (hasIndex && hasDocuments()) {
+        chatInput.disabled = false;
+        chatInput.placeholder = 'Ask a question about your documents...';
     } else {
-        chatInput.placeholder = 'Type a message...';
+        chatInput.disabled = true;
+        chatInput.placeholder = 'Please upload documents first...';
     }
     // Enable send button if there's text
     sendBtn.disabled = !chatInput.value.trim();
+}
+
+// Check if we have documents
+function hasDocuments() {
+    const fileItems = fileList.querySelectorAll('.file-item');
+    return fileItems.length > 0;
 }
 
 async function sendMessage() {

@@ -10,3 +10,4 @@ storage/
 *.egg-info/
 dist/
 build/
+issues.md

@@ -26,10 +26,25 @@ os.makedirs(DATA_DIR, exist_ok=True)
 app = Flask(__name__)
 CORS(app)
 
-# Force local storage for session-based approach
-use_cloudinary = False
-storage = None
-print("✅ Using local storage for session-based files")
+# Initialize Cloudinary storage
+# Option 1: Try environment variables first
+cloud_name = os.getenv('CLOUDINARY_CLOUD_NAME')
+cloud_api_key = os.getenv('CLOUDINARY_API_KEY')
+cloud_api_secret = os.getenv('CLOUDINARY_API_SECRET')
+
+# Option 2: Fallback to hardcoded credentials (uncomment and fill in if needed)
+# cloud_name = "your_cloudinary_cloud_name"
+# cloud_api_key = "your_cloudinary_api_key"
+# cloud_api_secret = "your_cloudinary_api_secret"
+
+use_cloudinary = all([cloud_name, cloud_api_key, cloud_api_secret])
+
+if use_cloudinary:
+    storage = CloudinaryStorage(cloud_name=cloud_name, api_key=cloud_api_key, api_secret=cloud_api_secret)
+    print("✅ Using Cloudinary for file storage")
+else:
+    storage = None
+    print("⚠️  Cloudinary not configured")
 
 # Initialize Gemini
 # Get API key from environment variable
@@ -311,24 +326,6 @@ def reindex():
             'error': f'Reindex failed: {str(e)}'
         }), 500
 
-@app.route('/clear-session', methods=['POST'])
-def clear_session():
-    """Clear all session data (called via navigator.sendBeacon)"""
-    try:
-        # Delete all files from local storage
-        if os.path.exists(DATA_DIR):
-            for filename in os.listdir(DATA_DIR):
-                file_path = os.path.join(DATA_DIR, filename)
-                if os.path.isfile(file_path) and not filename.startswith('.'):
-                    os.remove(file_path)
-                    print(f"✅ Deleted {filename} on session clear")
-        
-        # Clear any temporary data
-        return '', 200  # Return empty response for beacon
-    except Exception as e:
-        print(f"Error clearing session: {e}")
-        return '', 500
-
 @app.route('/chat', methods=['POST'])
 def chat():
     """RAG-only Chat - answers questions ONLY from uploaded documents"""
@@ -352,7 +349,7 @@ def chat():
         all_text = ""
         file_count = 0
         
-        # Get all files from Cloudinary or local storage
+        # Get all files from Cloudinary or local storage (optional - allow chat without documents)
         if use_cloudinary and storage:
             cloud_files = storage.list_files()
             file_list = ", ".join([f['name'] for f in cloud_files]) if cloud_files else ""
@@ -409,7 +406,7 @@ def chat():
                     traceback.print_exc()
                     continue
         else:
-            # Use local storage
+            # Use local storage (optional - allow chat without documents)
             if os.path.exists(DATA_DIR):
                 local_files = [f for f in os.listdir(DATA_DIR) 
                               if os.path.isfile(os.path.join(DATA_DIR, f)) and not f.startswith('.')]
@@ -491,7 +488,9 @@ def chat():
                 return jsonify({'response': formatted_response})
             else:
                 # If no text was extracted, provide helpful message and try to debug
-                error_msg = "❌ **No content found in the uploaded documents.**\n\n"
+                print(f"⚠️ Warning: all_text is empty. Files processed: {file_count}")
+                error_msg = f"⚠️ **No text content could be extracted from the documents.**\n\n"
+                error_msg += f"**Available files:** {file_list}\n\n"
                 error_msg += "**Possible reasons:**\n"
                 error_msg += "- Files may be empty or corrupted\n"
                 error_msg += "- Files may be in an unsupported format\n"
@@ -601,22 +600,92 @@ ANSWER:"""
                 
                 return jsonify({
                     'error': f'Quota exceeded: The free tier API quota has been reached. Please wait {retry_delay} before trying again. Free tier has limited requests per day. Check your quota at https://aistudio.google.com/apikey or consider upgrading your plan.'
-                }), 429
-            elif '403' in error_msg and ('API key' in error_msg or 'invalid' in error_msg.lower() or 'revoked' in error_msg.lower()):
-                return jsonify({
-                    'error': 'API key error: Your Gemini API key is invalid or has been revoked. Please get a new key from https://aistudio.google.com/apikey and update your environment variables.'
-                }), 403
-            elif '401' in error_msg or 'unauthorized' in error_msg.lower():
-                return jsonify({
-                    'error': 'Authentication failed: Please check your GEMINI_API_KEY environment variable.'
-                }), 401
-            else:
-                return jsonify({
-                    'error': f'Error generating response: {error_msg}. Please try again or rephrase your question.'
-                }), 500
+    
+    # RAG-focused generation configuration
+    generation_config = {
+        "temperature": 0.3,  # Lower temperature for more accurate, document-based responses
+        "top_p": 0.8,
+        "top_k": 20,
+        "max_output_tokens": 2048,
+    }
+    
+    # Use safety settings that allow more content
+    safety_settings = [
+        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+    ]
+    
+    try:
+        # Use retry logic for rate limit errors
+        response, api_error = generate_with_retry(
+            model, prompt, generation_config, safety_settings, max_retries=3
+        )
         
-        # Return the response without saving conversation history
-        return jsonify({'response': assistant_response})
+        if api_error:
+            raise api_error
+        
+        # Check if response was blocked or has errors
+        if not response or not hasattr(response, 'text'):
+            error_msg = "The AI response was blocked or empty. This might be due to content filters or API issues."
+            print(f"❌ Error: {error_msg}")
+            return jsonify({'error': error_msg}), 500
+        
+        # Handle potential blocking reasons
+        if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
+            if hasattr(response.prompt_feedback, 'block_reason') and response.prompt_feedback.block_reason:
+                print(f"⚠️ Response blocked: {response.prompt_feedback.block_reason}")
+                return jsonify({
+                    'error': f'Response was blocked: {response.prompt_feedback.block_reason}. Please try rephrasing your question.'
+                }), 400
+        
+        assistant_response = response.text
+        
+        if not assistant_response or not assistant_response.strip():
+            error_msg = "The AI returned an empty response. Please try again."
+            print(f"❌ Error: {error_msg}")
+            return jsonify({'error': error_msg}), 500
+            
+    except Exception as api_error:
+        error_msg = str(api_error)
+        print(f"❌ Gemini API error: {error_msg}")
+        import traceback
+        traceback.print_exc()
+        
+        # Provide user-friendly error messages
+        # Check for quota exceeded first (before invalid key check)
+        if '429' in error_msg or 'quota' in error_msg.lower() or 'quota exceeded' in error_msg.lower() or 'rate limit' in error_msg.lower():
+            # Extract retry delay if available
+            retry_delay = "a few minutes"
+            if 'retry in' in error_msg.lower() or 'retry_delay' in error_msg.lower():
+                import re
+                delay_match = re.search(r'retry in ([\d.]+)s', error_msg.lower())
+                if delay_match:
+                    seconds = float(delay_match.group(1))
+                    if seconds < 60:
+                        retry_delay = f"{int(seconds)} seconds"
+                    else:
+                        retry_delay = f"{int(seconds/60)} minutes"
+            
+            return jsonify({
+                'error': f'Quota exceeded: The free tier API quota has been reached. Please wait {retry_delay} before trying again. Free tier has limited requests per day. Check your quota at https://aistudio.google.com/apikey or consider upgrading your plan.'
+            }), 429
+        elif '403' in error_msg and ('API key' in error_msg or 'invalid' in error_msg.lower() or 'revoked' in error_msg.lower()):
+            return jsonify({
+                'error': 'API key error: Your Gemini API key is invalid or has been revoked. Please get a new key from https://aistudio.google.com/apikey and update your environment variables.'
+            }), 403
+        elif '401' in error_msg or 'unauthorized' in error_msg.lower():
+            return jsonify({
+                'error': 'Authentication failed: Please check your GEMINI_API_KEY environment variable.'
+            }), 401
+        else:
+            return jsonify({
+                'error': f'Error generating response: {error_msg}. Please try again or rephrase your question.'
+            }), 500
+    
+    # Return the response without saving conversation history
+    return jsonify({'response': assistant_response})
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5001))
