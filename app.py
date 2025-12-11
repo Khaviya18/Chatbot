@@ -8,6 +8,7 @@ from llama_index.core import (
     StorageContext,
     load_index_from_storage
 )
+from llama_index.core.node_parser import SentenceSplitter
 from llama_index.llms.gemini import Gemini
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 import google.generativeai as genai
@@ -170,6 +171,12 @@ def load_index():
     progress_bar.progress(33)
     documents = SimpleDirectoryReader(DATA_DIR).load_data()
     
+    # Configure better chunking for improved retrieval
+    Settings.node_parser = SentenceSplitter(
+        chunk_size=1024,  # Larger chunks for more context
+        chunk_overlap=100,  # Overlap to preserve context between chunks
+    )
+    
     # Step 2: Create index
     status_text.text(f"Step 2/3: Creating embeddings for {len(documents)} document(s)...")
     progress_bar.progress(66)
@@ -268,15 +275,21 @@ else:
                 with st.spinner("Thinking..."):
                     query_engine = index.as_query_engine(
                         streaming=True,
-                        similarity_top_k=1,
+                        similarity_top_k=5,
                         system_prompt=(
                             "You answer strictly using the provided context. "
                             "If answer is not in documents, reply: "
-                            "'I cannot answer this based on the provided documents.'"
+                            "'I cannot find this information in the provided documents.'"
                         )
                     )
                     try:
                         response = query_engine.query(prompt)
+                        # Show retrieved chunks for debugging
+                        if hasattr(response, 'source_nodes') and st.checkbox("Show retrieved context", key="show_context"):
+                            st.write("### Retrieved Context:")
+                            for i, node in enumerate(response.source_nodes):
+                                with st.expander(f"Chunk {i+1} (Score: {node.score:.3f})"):
+                                    st.write(node.text)
                         placeholder = st.empty()
                         full_response = ""
                         for token in response.response_gen:
