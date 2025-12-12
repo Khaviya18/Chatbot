@@ -332,34 +332,57 @@ async function sendMessage() {
             body: JSON.stringify({ query })
         });
 
-        // Check if response is JSON
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-            const text = await response.text();
-            console.error('Non-JSON response:', text.substring(0, 200));
-            removeTypingIndicator(typingId);
-            addMessage('assistant', 'Error: Server returned invalid response. Please try again.');
-            return;
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
         }
-
-        const data = await response.json();
 
         // Remove typing indicator
         removeTypingIndicator(typingId);
 
-        if (response.ok) {
-            addMessage('assistant', data.response);
-        } else {
-            addMessage('assistant', `Error: ${data.error || 'Unknown error occurred'}`);
+        // Create a placeholder message for streaming
+        const messageId = addStreamingMessage('assistant');
+        let fullContent = '';
+
+        // Read the stream
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
+
+            for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                    try {
+                        const data = JSON.parse(line.slice(6));
+
+                        if (data.error) {
+                            updateStreamingMessage(messageId, `Error: ${data.error}`);
+                            break;
+                        }
+
+                        if (data.content) {
+                            fullContent += data.content;
+                            updateStreamingMessage(messageId, fullContent);
+                        }
+
+                        if (data.done) {
+                            break;
+                        }
+                    } catch (e) {
+                        console.error('Error parsing SSE data:', e);
+                    }
+                }
+            }
         }
+
     } catch (error) {
         console.error('Chat error:', error);
         removeTypingIndicator(typingId);
-        if (error.message.includes('JSON')) {
-            addMessage('assistant', 'Error: Invalid server response. Please refresh the page and try again.');
-        } else {
-            addMessage('assistant', `Error: ${error.message}`);
-        }
+        addMessage('assistant', `Error: ${error.message}`);
     } finally {
         // Re-enable send button
         sendBtn.disabled = !chatInput.value.trim();
@@ -442,6 +465,67 @@ function addMessage(role, content) {
     if (typeof Prism !== 'undefined') {
         Prism.highlightAll();
     }
+}
+
+function addStreamingMessage(role) {
+    // Remove welcome message if it exists
+    const welcomeMsg = chatMessages.querySelector('.flex.gap-4');
+    if (welcomeMsg && welcomeMsg.innerText.includes("RAG-powered assistant")) {
+        welcomeMsg.remove();
+    }
+
+    const messageId = 'msg-' + Date.now();
+    const messageDiv = document.createElement('div');
+    messageDiv.id = messageId;
+    const isUser = role === 'user';
+
+    messageDiv.className = `flex gap-4 ${isUser ? 'flex-row-reverse' : ''}`;
+
+    const avatar = isUser
+        ? `<div class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">
+             <i data-lucide="user" class="w-5 h-5 text-white"></i>
+           </div>`
+        : `<div class="flex-shrink-0 w-10 h-10 rounded-full bg-accent flex items-center justify-center">
+             <i data-lucide="bot" class="w-5 h-5 text-foreground"></i>
+           </div>`;
+
+    const bubbleClass = isUser
+        ? 'bg-blue-600 text-white'
+        : 'bg-accent border border-border text-foreground';
+
+    messageDiv.innerHTML = `
+        ${avatar}
+        <div class="flex-1 ${isUser ? 'flex justify-end' : ''}">
+            <div class="inline-block max-w-2xl rounded-2xl px-5 py-3 ${bubbleClass}">
+                <div class="whitespace-pre-wrap streaming-content"></div>
+            </div>
+        </div>
+    `;
+
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    lucide.createIcons();
+
+    return messageId;
+}
+
+function updateStreamingMessage(messageId, content) {
+    const messageDiv = document.getElementById(messageId);
+    if (!messageDiv) return;
+
+    const contentDiv = messageDiv.querySelector('.streaming-content');
+    if (contentDiv) {
+        const formattedContent = formatMessageContent(content);
+        contentDiv.innerHTML = formattedContent;
+
+        // Highlight code if Prism is available
+        if (typeof Prism !== 'undefined') {
+            Prism.highlightAll();
+        }
+    }
+
+    chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
 function addTypingIndicator() {

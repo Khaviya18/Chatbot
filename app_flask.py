@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory, session
+from flask import Flask, request, jsonify, send_from_directory, session, Response
 from flask_cors import CORS
 import os
 import google.generativeai as genai
@@ -42,12 +42,13 @@ else:
 
 # Initialize Gemini
 api_key = os.getenv("GEMINI_API_KEY")
+model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
 
 if api_key and api_key.strip() and api_key != "your_api_key_here":
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.0-flash')
-        print("✅ Gemini initialized")
+        model = genai.GenerativeModel(model_name)
+        print(f"✅ Gemini initialized with model: {model_name}")
     except Exception as e:
         print(f"⚠️  Error initializing Gemini: {e}")
         model = None
@@ -165,8 +166,14 @@ def delete_file(filename):
 
 @app.route('/reindex', methods=['POST'])
 def reindex():
-    # Only returns success for UI, as we read files on demand
-    return jsonify({'message': 'Index refreshed', 'file_count': 0, 'document_count': 0})
+    # Count actual files
+    file_count = 0
+    if os.path.exists(DATA_DIR):
+        files = [f for f in os.listdir(DATA_DIR) 
+                if os.path.isfile(os.path.join(DATA_DIR, f)) and not f.startswith('.')]
+        file_count = len(files)
+    
+    return jsonify({'message': f'Indexed {file_count} file(s)', 'file_count': file_count, 'document_count': file_count})
 
 @app.route('/clear-session', methods=['POST'])
 def clear_session():
@@ -190,7 +197,7 @@ def clear_session():
 
 @app.route('/chat', methods=['POST'])
 def chat():
-    """Strict RAG Endpoint"""
+    """Streaming RAG Endpoint"""
     if not model:
         return jsonify({'error': 'Gemini API not configured'}), 500
     
@@ -198,69 +205,83 @@ def chat():
     query = data.get('query', '')
     if not query:
         return jsonify({'error': 'No query provided'}), 400
-        
-    try:
-        # 1. Fetch current file list
-        local_files = []
-        if os.path.exists(DATA_DIR):
-            local_files = [f for f in os.listdir(DATA_DIR) 
-                          if os.path.isfile(os.path.join(DATA_DIR, f)) and not f.startswith('.')]
-        
-        file_count = len(local_files)
-        file_list = ", ".join(local_files)
-        
-        # 2. Extract text fresh
-        all_text = ""
-        if file_count > 0:
-            for filename in local_files:
-                try:
-                    with open(os.path.join(DATA_DIR, filename), 'rb') as f:
-                        content = f.read()
-                    text = extract_text_from_file(content, filename)
-                    if text and text.strip():
-                         all_text += f"\n\n{'='*60}\nDOCUMENT: {filename}\n{'='*60}\n{text}\n"
-                except Exception as e:
-                    print(f"Error reading {filename}: {e}")
-        
-        # 3. Strict Check
-        if not all_text.strip():
-            return jsonify({'response': "I cannot answer this question because there are no documents uploaded. Please upload relevant documents first."})
+    
+    def generate():
+        try:
+            # 1. Fetch current file list
+            local_files = []
+            if os.path.exists(DATA_DIR):
+                local_files = [f for f in os.listdir(DATA_DIR) 
+                              if os.path.isfile(os.path.join(DATA_DIR, f)) and not f.startswith('.')]
             
-        # 4. Strict Prompt
-        prompt = f"""You are a strict document analysis assistant.
-        
-        CRITICAL INSTRUCTIONS:
-        1. Answer ONLY using the information provided in the documents below.
-        2. If the answer is not explicitly in the documents, you MUST state: "I cannot find this information in the provided documents."
-        3. Do NOT use outside knowledge, general facts, or assumptions.
-        
-        DOCUMENTS ({file_count} file(s)):
-        {file_list}
-        
-        CONTENT:
-        {all_text}
-        
-        USER QUESTION: {query}
-        
-        ANSWER:"""
-        
-        generation_config = {"temperature": 0.0, "max_output_tokens": 2048}
-        safety_settings = [
-            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-        ]
-        
-        response = model.generate_content(prompt, generation_config=generation_config, safety_settings=safety_settings)
-        if response and response.text:
-            return jsonify({'response': response.text})
-        else:
-            return jsonify({'error': 'No response'}), 500
+            file_count = len(local_files)
+            file_list = ", ".join(local_files)
+            
+            # 2. Extract text fresh
+            all_text = ""
+            if file_count > 0:
+                for filename in local_files:
+                    try:
+                        with open(os.path.join(DATA_DIR, filename), 'rb') as f:
+                            content = f.read()
+                        text = extract_text_from_file(content, filename)
+                        if text and text.strip():
+                             all_text += f"\n\n{'='*60}\nDOCUMENT: {filename}\n{'='*60}\n{text}\n"
+                    except Exception as e:
+                        print(f"Error reading {filename}: {e}")
+            
+            # 3. Strict Check
+            if not all_text.strip():
+                yield f"data: {json.dumps({'content': 'I cannot answer this question because there are no documents uploaded. Please upload relevant documents first.', 'done': True})}\n\n"
+                return
+                
+            # 4. Strict Prompt
+            prompt = f"""You are a strict document analysis assistant.
+            
+            CRITICAL INSTRUCTIONS:
+            1. Answer ONLY using the information provided in the documents below.
+            2. If the answer is not explicitly in the documents, you MUST state: "I cannot find this information in the provided documents."
+            3. Do NOT use outside knowledge, general facts, or assumptions.
+            
+            DOCUMENTS ({file_count} file(s)):
+            {file_list}
+            
+            CONTENT:
+            {all_text}
+            
+            USER QUESTION: {query}
+            
+            ANSWER:"""
+            
+            generation_config = {"temperature": 0.0, "max_output_tokens": 2048}
+            safety_settings = [
+                {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+            ]
+            
+            # Stream the response
+            response = model.generate_content(
+                prompt, 
+                generation_config=generation_config, 
+                safety_settings=safety_settings,
+                stream=True
+            )
+            
+            for chunk in response:
+                if chunk.text:
+                    yield f"data: {json.dumps({'content': chunk.text})}\n\n"
+            
+            # Send done signal
+            yield f"data: {json.dumps({'done': True})}\n\n"
 
-    except Exception as e:
-        print(f"Chat error: {e}")
-        return jsonify({'error': str(e)}), 500
+        except Exception as e:
+            print(f"Chat error: {e}")
+            yield f"data: {json.dumps({'error': str(e), 'done': True})}\n\n"
+    
+    return Response(generate(), mimetype='text/event-stream')
+
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5001))
