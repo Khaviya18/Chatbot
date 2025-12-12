@@ -366,6 +366,28 @@ async function sendMessage() {
     }
 }
 
+function formatMessageContent(content) {
+    // Basic markdown formatting
+    let formatted = escapeHtml(content);
+
+    // Convert **bold** to <strong>
+    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+    // Convert *italic* to <em>
+    formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+    // Convert code blocks
+    formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+
+    // Convert inline code
+    formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+    // Convert newlines to <br>
+    formatted = formatted.replace(/\n/g, '<br>');
+
+    return formatted;
+}
+
 function addMessage(role, content) {
     // Remove welcome message if it exists
     const welcomeMsg = chatMessages.querySelector('.flex.gap-4');
