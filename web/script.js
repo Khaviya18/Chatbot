@@ -10,6 +10,9 @@ const reindexBtn = document.getElementById('reindexBtn');
 const chatMessages = document.getElementById('chatMessages');
 const chatInput = document.getElementById('chatInput');
 const sendBtn = document.getElementById('sendBtn');
+const themeToggle = document.getElementById('themeToggle');
+const sidebarToggle = document.getElementById('sidebarToggle');
+const sidebar = document.getElementById('sidebar');
 
 // State
 let hasIndex = false;
@@ -19,12 +22,38 @@ let isInitialized = false;
 document.addEventListener('DOMContentLoaded', () => {
     loadFiles();
     setupEventListeners();
-    updateChatState(); // Enable chat immediately
+    updateChatState();
+    initializeTheme();
     isInitialized = true;
 });
 
+// Theme Management
+function initializeTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+}
+
+function toggleTheme() {
+    const currentTheme = document.documentElement.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+}
+
+// Sidebar Management
+function toggleSidebar() {
+    sidebar.classList.toggle('collapsed');
+    localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+}
+
 // Event Listeners
 function setupEventListeners() {
+    // Theme toggle
+    themeToggle.addEventListener('click', toggleTheme);
+
+    // Sidebar toggle
+    sidebarToggle.addEventListener('click', toggleSidebar);
+
     // File upload
     fileInput.addEventListener('change', handleFileUpload);
 
@@ -65,7 +94,7 @@ function setupEventListeners() {
 
     // Send button
     sendBtn.addEventListener('click', sendMessage);
-    
+
     // Attach file button
     const attachBtn = document.getElementById('attachBtn');
     if (attachBtn) {
@@ -130,7 +159,7 @@ async function handleFiles(files) {
 async function loadFiles() {
     try {
         const response = await fetch(`${API_URL}/files`);
-        
+
         // Check if response is JSON
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
@@ -143,7 +172,7 @@ async function loadFiles() {
             }
             return;
         }
-        
+
         const data = await response.json();
 
         displayFiles(data.files);
@@ -366,20 +395,20 @@ function addMessage(role, content) {
 function formatMessageContent(content) {
     // Basic markdown formatting
     let formatted = escapeHtml(content);
-    
+
     // Convert **bold** to <strong>
     formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    
+
     // Convert *italic* to <em>
     formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
-    
+
     // Convert line breaks
     formatted = formatted.replace(/\n/g, '<br>');
-    
+
     // Convert bullet points
     formatted = formatted.replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>');
     formatted = formatted.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
-    
+
     return `<p>${formatted}</p>`;
 }
 

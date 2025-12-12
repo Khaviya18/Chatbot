@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,14 +10,40 @@
     <div class="container">
         <!-- Header -->
         <header>
-            <h1>✨ My AI Assistant</h1>
-            <p>Your personalized AI friend - chat about anything or ask about your documents</p>
+            <div class="header-content">
+                <div class="header-left">
+                    <button id="sidebarToggle" class="btn-icon" title="Toggle sidebar">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <h1>✨ My AI Assistant</h1>
+                </div>
+                <button id="themeToggle" class="btn-icon" title="Toggle theme">
+                    <svg class="sun-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                    <svg class="moon-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                </button>
+            </div>
         </header>
 
         <!-- Main Content -->
         <div class="main-content">
             <!-- Sidebar -->
-            <aside class="sidebar">
+            <aside class="sidebar" id="sidebar">
                 <div class="section">
                     <h2>📎 Upload Files</h2>
                     <p class="section-description">Upload documents to ask questions about them</p>
@@ -61,7 +87,7 @@
                     </div>
                     <div class="info-item">
                         <span class="label">Mode:</span>
-                        <span class="value">Personalized</span>
+                        <span class="value">RAG</span>
                     </div>
                 </div>
             </aside>
@@ -83,13 +109,13 @@
                         <div class="welcome-avatar">✨</div>
                         <div class="welcome-content">
                             <h2>Hey there! 👋</h2>
-                            <p>I'm your personalized AI assistant. You can chat with me about anything, or upload documents and ask me questions about them!</p>
+                            <p>I'm your AI assistant. Upload documents and ask me questions about them!</p>
                             <div class="welcome-suggestions">
                                 <p class="suggestions-label">Try asking me:</p>
                                 <div class="suggestion-chips">
-                                    <span class="chip">What's your name?</span>
-                                    <span class="chip">Tell me a joke</span>
-                                    <span class="chip">Help me with...</span>
+                                    <span class="chip">What's in this document?</span>
+                                    <span class="chip">Summarize the key points</span>
+                                    <span class="chip">Find specific information</span>
                                 </div>
                             </div>
                         </div>
