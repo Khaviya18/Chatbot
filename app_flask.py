@@ -42,7 +42,9 @@ else:
 
 # Initialize Gemini
 api_key = os.getenv("GEMINI_API_KEY")
-model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+# Use models/gemini-2.0-flash as default (stable and widely available)
+# Alternative models: models/gemini-2.5-flash, models/gemini-2.0-flash-exp, models/gemini-2.5-pro
+model_name = os.getenv("GEMINI_MODEL", "models/gemini-2.0-flash")
 
 if api_key and api_key.strip() and api_key != "your_api_key_here":
     try:
