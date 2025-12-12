@@ -741,19 +741,19 @@ header button:hover {
 }
 
 /* Message Bubble Enhancements */
-.message .inline-block {
+.flex.gap-4 .rounded-2xl {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
     position: relative;
+    overflow: visible;
 }
 
 /* User message bubble (right side) */
-.message.user .inline-block {
+.flex-row-reverse .rounded-2xl {
     max-width: 500px;
 }
 
 /* AI message bubble (left side) */
-.message.assistant .inline-block,
-.message:not(.user) .inline-block {
+.flex.gap-4:not(.flex-row-reverse) .rounded-2xl {
     max-width: 700px;
 }
 
