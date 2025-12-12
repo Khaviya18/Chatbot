@@ -406,6 +406,7 @@ body {
     display: flex;
     flex-direction: column;
     transition: margin-left 0.3s ease;
+    border-right: 1px solid var(--border);
 }
 
 .sidebar.collapsed {
@@ -468,8 +469,20 @@ textarea:focus {
         margin-left: 0;
     }
 }
+
 /* Theme Icon Toggling */
-[data-theme="light"] .sun-icon { display: none; }
-[data-theme="light"] .moon-icon { display: block; }
-[data-theme="dark"] .moon-icon { display: none; }
-[data-theme="dark"] .sun-icon { display: block; }
+[data-theme="light"] .sun-icon {
+    display: none;
+}
+
+[data-theme="light"] .moon-icon {
+    display: block;
+}
+
+[data-theme="dark"] .moon-icon {
+    display: none;
+}
+
+[data-theme="dark"] .sun-icon {
+    display: block;
+}
