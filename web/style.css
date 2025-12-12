@@ -854,13 +854,15 @@ header button:hover {
     height: 72px;
     margin-bottom: 0.5rem;
 }
+
 /* Timestamp styling */
 .message-timestamp {
     font-size: 0.7rem;
     color: var(--muted-foreground);
     margin-top: 0.25rem;
-    opacity: 0;
+    opacity: 0.6;
     transition: opacity 0.2s ease;
+    text-align: right;
 }
 
 .flex.gap-4:hover .message-timestamp {
@@ -869,10 +871,14 @@ header button:hover {
 
 /* Enhanced typing animation - more pronounced */
 @keyframes typingBounceEnhanced {
-    0%, 60%, 100% {
+
+    0%,
+    60%,
+    100% {
         transform: translateY(0);
         opacity: 0.4;
     }
+
     30% {
         transform: translateY(-12px);
         opacity: 1;

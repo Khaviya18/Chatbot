@@ -483,7 +483,7 @@ function addMessage(role, content) {
             <div class="inline-block max-w-2xl rounded-2xl px-5 py-3 ${bubbleClass}">
                 <div class="whitespace-pre-wrap">${formattedContent}</div>
             </div>
-            <div class="message-timestamp ${isUser ? 'text-right' : ''}">${timestamp}</div>
+            <div class="message-timestamp">${timestamp}</div>
         </div>
     `;
 
