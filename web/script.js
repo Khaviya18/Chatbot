@@ -480,10 +480,12 @@ function addMessage(role, content) {
     messageDiv.innerHTML = `
         ${avatar}
         <div class="flex-1 ${isUser ? 'flex justify-end' : ''}">
-            <div class="inline-block max-w-2xl rounded-2xl px-5 py-3 ${bubbleClass}">
-                <div class="whitespace-pre-wrap">${formattedContent}</div>
+            <div>
+                <div class="inline-block max-w-2xl rounded-2xl px-5 py-3 ${bubbleClass}">
+                    <div class="whitespace-pre-wrap">${formattedContent}</div>
+                </div>
+                <div class="message-timestamp">${timestamp}</div>
             </div>
-            <div class="message-timestamp">${timestamp}</div>
         </div>
     `;
 
