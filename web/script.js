@@ -368,62 +368,75 @@ async function sendMessage() {
 
 function addMessage(role, content) {
     // Remove welcome message if it exists
-    const welcomeMsg = chatMessages.querySelector('.welcome-message');
-    if (welcomeMsg) {
+    const welcomeMsg = chatMessages.querySelector('.flex.gap-4');
+    if (welcomeMsg && welcomeMsg.innerText.includes("RAG-powered assistant")) {
         welcomeMsg.remove();
     }
 
     const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${role}`;
+    const isUser = role === 'user';
 
-    const avatar = role === 'user' ? '👤' : '✨';
+    // Container classes
+    messageDiv.className = `flex gap-4 ${isUser ? 'flex-row-reverse' : ''}`;
 
-    // Format content with markdown-like support (basic)
+    // Avatar
+    const avatar = isUser
+        ? `<div class="flex-shrink-0 w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center">
+             <i data-lucide="user" class="w-5 h-5 text-white"></i>
+           </div>`
+        : `<div class="flex-shrink-0 w-10 h-10 rounded-full bg-accent flex items-center justify-center">
+             <i data-lucide="bot" class="w-5 h-5 text-foreground"></i>
+           </div>`;
+
+    // Content Bubble
+    // User: blue bg, white text
+    // AI: accent bg, foreground text, border
+    const bubbleClass = isUser
+        ? 'bg-blue-600 text-white'
+        : 'bg-accent border border-border text-foreground';
+
+    // Format content
     const formattedContent = formatMessageContent(content);
 
     messageDiv.innerHTML = `
-        <div class="message-avatar">${avatar}</div>
-        <div class="message-content">
-            ${formattedContent}
+        ${avatar}
+        <div class="flex-1 ${isUser ? 'flex justify-end' : ''}">
+            <div class="inline-block max-w-2xl rounded-2xl px-5 py-3 ${bubbleClass}">
+                <div class="whitespace-pre-wrap">${formattedContent}</div>
+            </div>
         </div>
     `;
 
     chatMessages.appendChild(messageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
-}
 
-function formatMessageContent(content) {
-    // Basic markdown formatting
-    let formatted = escapeHtml(content);
-
-    // Convert **bold** to <strong>
-    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-    // Convert *italic* to <em>
-    formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
-
-    // Convert line breaks
-    formatted = formatted.replace(/\n/g, '<br>');
-
-    // Convert bullet points
-    formatted = formatted.replace(/^[-•]\s+(.+)$/gm, '<li>$1</li>');
-    formatted = formatted.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
-
-    return `<p>${formatted}</p>`;
+    // Initialize new icons
+    lucide.createIcons();
 }
 
 function addTypingIndicator() {
+    // Remove welcome message if it exists
+    const welcomeMsg = chatMessages.querySelector('.flex.gap-4');
+    if (welcomeMsg && welcomeMsg.innerText.includes("RAG-powered assistant")) {
+        welcomeMsg.remove();
+    }
+
+    const id = 'typing-' + Date.now();
     const typingDiv = document.createElement('div');
-    typingDiv.className = 'message assistant';
-    typingDiv.id = 'typing-indicator';
+    typingDiv.id = id;
+    typingDiv.className = 'flex gap-4';
 
     typingDiv.innerHTML = `
-        <div class="message-avatar">🤖</div>
-        <div class="message-content">
-            <div class="typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
+        <div class="flex-shrink-0 w-10 h-10 rounded-full bg-accent flex items-center justify-center">
+             <i data-lucide="bot" class="w-5 h-5 text-foreground"></i>
+        </div>
+        <div class="flex-1">
+            <div class="inline-block rounded-2xl px-5 py-3 bg-accent border border-border">
+                <div class="flex gap-1 h-5 items-center">
+                    <div class="w-2 h-2 rounded-full bg-muted-foreground animate-bounce" style="animation-delay: 0ms"></div>
+                    <div class="w-2 h-2 rounded-full bg-muted-foreground animate-bounce" style="animation-delay: 150ms"></div>
+                    <div class="w-2 h-2 rounded-full bg-muted-foreground animate-bounce" style="animation-delay: 300ms"></div>
+                </div>
             </div>
         </div>
     `;
@@ -431,7 +444,10 @@ function addTypingIndicator() {
     chatMessages.appendChild(typingDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 
-    return 'typing-indicator';
+    // Initialize new icons
+    lucide.createIcons();
+
+    return id;
 }
 
 function removeTypingIndicator(id) {
