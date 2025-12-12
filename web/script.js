@@ -469,12 +469,21 @@ function addMessage(role, content) {
     // Format content
     const formattedContent = formatMessageContent(content);
 
+    // Get current time
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours % 12 || 12;
+    const timestamp = `${displayHours}:${minutes} ${ampm}`;
+
     messageDiv.innerHTML = `
         ${avatar}
         <div class="flex-1 ${isUser ? 'flex justify-end' : ''}">
             <div class="inline-block max-w-2xl rounded-2xl px-5 py-3 ${bubbleClass}">
                 <div class="whitespace-pre-wrap">${formattedContent}</div>
             </div>
+            <div class="message-timestamp ${isUser ? 'text-right' : ''}">${timestamp}</div>
         </div>
     `;
 
@@ -492,6 +501,9 @@ function addMessage(role, content) {
     if (typeof Prism !== 'undefined') {
         Prism.highlightAll();
     }
+
+    // Add copy buttons to code blocks
+    addCopyButtonsToCodeBlocks();
 }
 
 function addStreamingMessage(role) {
@@ -550,6 +562,9 @@ function updateStreamingMessage(messageId, content) {
         if (typeof Prism !== 'undefined') {
             Prism.highlightAll();
         }
+
+        // Add copy buttons to code blocks
+        addCopyButtonsToCodeBlocks();
     }
 
     chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -664,4 +679,37 @@ function showSkeletonLoaders() {
         '<div class="skeleton skeleton-card"></div>'
     ).join('');
     fileList.innerHTML = skeletons;
+}
+
+// Add copy buttons to code blocks
+function addCopyButtonsToCodeBlocks() {
+    const codeBlocks = document.querySelectorAll('pre code');
+    codeBlocks.forEach(block => {
+        const pre = block.parentElement;
+
+        // Check if button already exists
+        if (pre.querySelector('.code-copy-btn')) return;
+
+        const button = document.createElement('button');
+        button.className = 'code-copy-btn';
+        button.textContent = 'Copy';
+
+        button.addEventListener('click', async () => {
+            const code = block.textContent;
+            try {
+                await navigator.clipboard.writeText(code);
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+
+                setTimeout(() => {
+                    button.textContent = 'Copy';
+                    button.classList.remove('copied');
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+            }
+        });
+
+        pre.appendChild(button);
+    });
 }

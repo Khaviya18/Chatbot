@@ -854,3 +854,74 @@ header button:hover {
     height: 72px;
     margin-bottom: 0.5rem;
 }
+/* Timestamp styling */
+.message-timestamp {
+    font-size: 0.7rem;
+    color: var(--muted-foreground);
+    margin-top: 0.25rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.flex.gap-4:hover .message-timestamp {
+    opacity: 1;
+}
+
+/* Enhanced typing animation - more pronounced */
+@keyframes typingBounceEnhanced {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.4;
+    }
+    30% {
+        transform: translateY(-12px);
+        opacity: 1;
+    }
+}
+
+.typing-dot {
+    animation: typingBounceEnhanced 1.4s infinite;
+}
+
+/* Theme toggle icon flip */
+#themeToggle i {
+    transition: transform 0.3s ease;
+}
+
+#themeToggle:active i {
+    transform: rotateY(180deg);
+}
+
+/* Code block copy button */
+pre {
+    position: relative;
+}
+
+.code-copy-btn {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    color: var(--foreground);
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s ease;
+}
+
+pre:hover .code-copy-btn {
+    opacity: 1;
+}
+
+.code-copy-btn:hover {
+    background: var(--accent);
+}
+
+.code-copy-btn.copied {
+    background: #10b981;
+    color: white;
+    border-color: #10b981;
+}
