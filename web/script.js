@@ -367,8 +367,14 @@ async function sendMessage() {
 }
 
 function formatMessageContent(content) {
-    // Basic markdown formatting
+    // Escape HTML first
     let formatted = escapeHtml(content);
+
+    // Convert code blocks with language identifier (```lang\ncode```)
+    formatted = formatted.replace(/```(\w+)?\n?([\s\S]*?)```/g, (match, lang, code) => {
+        const language = lang || 'plaintext';
+        return `<pre><code class="language-${language}">${code.trim()}</code></pre>`;
+    });
 
     // Convert **bold** to <strong>
     formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -376,11 +382,8 @@ function formatMessageContent(content) {
     // Convert *italic* to <em>
     formatted = formatted.replace(/\*(.*?)\*/g, '<em>$1</em>');
 
-    // Convert code blocks
-    formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
-
     // Convert inline code
-    formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+    formatted = formatted.replace(/`([^`]+)`/g, '<code class="language-none">$1</code>');
 
     // Convert newlines to <br>
     formatted = formatted.replace(/\n/g, '<br>');
@@ -434,6 +437,11 @@ function addMessage(role, content) {
 
     // Initialize new icons
     lucide.createIcons();
+
+    // Highlight code blocks with Prism
+    if (typeof Prism !== 'undefined') {
+        Prism.highlightAll();
+    }
 }
 
 function addTypingIndicator() {

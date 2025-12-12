@@ -20,6 +20,10 @@
     /* Blue specific for buttons/user messages - manually picked from design (blue-600) */
     --blue-primary: #2563eb;
     --blue-hover: #1d4ed8;
+
+    /* RGB versions for glassmorphism */
+    --surface-rgb: 255, 255, 255;
+    --background-rgb: 255, 255, 255;
 }
 
 /* Dark Mode Overrides */
@@ -38,6 +42,10 @@
     --input-background: #0c0c14;
     --primary: #ffffff;
     --primary-foreground: #030213;
+
+    /* RGB versions for glassmorphism */
+    --surface-rgb: 15, 15, 24;
+    --background-rgb: 3, 2, 19;
 }
 
 /* Global Reset & Base Styles */
@@ -407,6 +415,11 @@ body {
     flex-direction: column;
     transition: margin-left 0.3s ease;
     border-right: 1px solid var(--border);
+
+    /* Glassmorphism effect */
+    background: rgba(var(--surface-rgb), 0.7);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
 }
 
 .sidebar.collapsed {
@@ -486,6 +499,14 @@ textarea:focus {
 [data-theme="dark"] .sun-icon {
     display: block;
 }
+
+/* Header glassmorphism */
+header {
+    background: rgba(var(--surface-rgb), 0.7);
+    backdrop-filter: blur(12px) saturate(180%);
+    -webkit-backdrop-filter: blur(12px) saturate(180%);
+}
+
 /* Header button styling for better dark mode visibility */
 header button {
     background-color: var(--accent);
