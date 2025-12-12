@@ -486,3 +486,12 @@ textarea:focus {
 [data-theme="dark"] .sun-icon {
     display: block;
 }
+/* Header button styling for better dark mode visibility */
+header button {
+    background-color: var(--accent);
+    color: var(--foreground);
+}
+
+header button:hover {
+    background-color: var(--muted);
+}
