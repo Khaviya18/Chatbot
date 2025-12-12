@@ -197,14 +197,31 @@ function displayFiles(files) {
         return;
     }
 
-    fileList.innerHTML = files.map(file => `
-        <div class="file-item">
-            <span class="file-name" title="${file}">${file}</span>
-            <button class="btn-delete" onclick="deleteFile('${file}')" title="Delete ${file}">
-                ❌
-            </button>
-        </div>
-    `).join('');
+    fileList.innerHTML = files.map(file => {
+        const ext = file.split('.').pop().toLowerCase();
+        const iconClass = ['pdf', 'txt', 'md'].includes(ext) ? ext : 'default';
+        const icon = ext === 'pdf' ? '📄' : ext === 'txt' ? '📝' : ext === 'md' ? '📋' : '📁';
+
+        return `
+            <div class="file-card">
+                <div class="file-icon ${iconClass}">
+                    ${icon}
+                </div>
+                <div class="file-info">
+                    <div class="file-name-text" title="${file}">${file}</div>
+                    <div class="file-size-text">Document</div>
+                </div>
+                <button class="btn-delete" onclick="deleteFile('${file}')" title="Delete ${file}">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+        `;
+    }).join('');
+
+    // Initialize Lucide icons for delete buttons
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
 }
 
 // Delete File
@@ -456,6 +473,10 @@ function addMessage(role, content) {
     `;
 
     chatMessages.appendChild(messageDiv);
+
+    // Add animation class
+    messageDiv.classList.add('message-enter');
+
     chatMessages.scrollTop = chatMessages.scrollHeight;
 
     // Initialize new icons

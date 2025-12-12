@@ -24,6 +24,7 @@
     /* RGB versions for glassmorphism */
     --surface-rgb: 255, 255, 255;
     --background-rgb: 255, 255, 255;
+    --primary-rgb: 3, 2, 19;
 }
 
 /* Dark Mode Overrides */
@@ -46,6 +47,7 @@
     /* RGB versions for glassmorphism */
     --surface-rgb: 15, 15, 24;
     --background-rgb: 3, 2, 19;
+    --primary-rgb: 255, 255, 255;
 }
 
 /* Global Reset & Base Styles */
@@ -519,4 +521,198 @@ header button {
 
 header button:hover {
     background-color: var(--muted);
+}
+
+/* Message Animations */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.message-enter {
+    animation: fadeInUp 0.4s ease-out;
+}
+
+/* Enhanced typing indicator */
+@keyframes typingBounce {
+
+    0%,
+    60%,
+    100% {
+        transform: translateY(0);
+        opacity: 0.4;
+    }
+
+    30% {
+        transform: translateY(-8px);
+        opacity: 1;
+    }
+}
+
+.typing-dot {
+    animation: typingBounce 1.4s infinite;
+}
+
+.typing-dot:nth-child(1) {
+    animation-delay: 0s;
+}
+
+.typing-dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+/* Smooth streaming expansion */
+.streaming-content {
+    transition: all 0.1s ease-out;
+}
+
+/* Input Field Enhancements */
+#chatInput {
+    transition: max-height 0.2s ease, border-color 0.2s ease;
+}
+
+.btn-send {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-send:not(:disabled) {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 0 8px rgba(37, 99, 235, 0);
+    }
+}
+
+.btn-send:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+/* File Cards */
+.file-card {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem;
+    background: var(--surface-light);
+    border-radius: 0.75rem;
+    border: 1px solid var(--border);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+}
+
+.file-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px var(--shadow);
+    border-color: var(--primary);
+}
+
+.file-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.file-icon.pdf {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.file-icon.txt {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.file-icon.md {
+    background: #d1fae5;
+    color: #059669;
+}
+
+.file-icon.default {
+    background: var(--accent);
+    color: var(--text-muted);
+}
+
+.file-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.file-name-text {
+    font-weight: 500;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-size-text {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.125rem;
+}
+
+/* Enhanced drag-over */
+.upload-area.drag-over {
+    border-color: var(--primary);
+    background: var(--primary);
+    opacity: 0.15;
+    transform: scale(1.02);
+    transition: all 0.2s ease;
+}
+
+.upload-area.drag-over::after {
+    content: '📁 Drop files here';
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--primary);
+    background: rgba(var(--primary-rgb), 0.1);
+    border-radius: 0.75rem;
+}
+
+/* Success animation */
+@keyframes checkmark {
+    0% {
+        transform: scale(0) rotate(0deg);
+    }
+
+    50% {
+        transform: scale(1.2) rotate(180deg);
+    }
+
+    100% {
+        transform: scale(1) rotate(360deg);
+    }
+}
+
+.upload-success {
+    animation: checkmark 0.5s ease;
 }
