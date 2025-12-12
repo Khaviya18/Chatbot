@@ -716,3 +716,139 @@ header button:hover {
 .upload-success {
     animation: checkmark 0.5s ease;
 }
+/* Modern Scrollbar Styling */
+.chat-messages::-webkit-scrollbar,
+.file-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.chat-messages::-webkit-scrollbar-track,
+.file-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.chat-messages::-webkit-scrollbar-thumb,
+.file-list::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 10px;
+    transition: background 0.2s ease;
+}
+
+.chat-messages::-webkit-scrollbar-thumb:hover,
+.file-list::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
+}
+
+/* Message Bubble Enhancements */
+.message .inline-block {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    position: relative;
+}
+
+/* User message bubble (right side) */
+.message.user .inline-block {
+    max-width: 500px;
+}
+
+/* AI message bubble (left side) */
+.message.assistant .inline-block,
+.message:not(.user) .inline-block {
+    max-width: 700px;
+}
+
+/* Bubble tails */
+.message .inline-block::before {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-style: solid;
+}
+
+/* User bubble tail (right) */
+.flex-row-reverse .inline-block::before {
+    right: -8px;
+    top: 12px;
+    border-width: 8px 0 8px 8px;
+    border-color: transparent transparent transparent var(--blue-primary);
+}
+
+/* AI bubble tail (left) */
+.flex:not(.flex-row-reverse) .inline-block::before {
+    left: -8px;
+    top: 12px;
+    border-width: 8px 8px 8px 0;
+    border-color: transparent var(--accent) transparent transparent;
+    border-right-color: var(--accent);
+}
+
+[data-theme="dark"] .flex:not(.flex-row-reverse) .inline-block::before {
+    border-right-color: var(--accent);
+}
+
+/* Ripple Effect */
+@keyframes ripple {
+    0% {
+        transform: scale(0);
+        opacity: 0.6;
+    }
+    100% {
+        transform: scale(2.5);
+        opacity: 0;
+    }
+}
+
+.ripple-container {
+    position: relative;
+    overflow: hidden;
+}
+
+.ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.6);
+    width: 20px;
+    height: 20px;
+    margin-top: -10px;
+    margin-left: -10px;
+    animation: ripple 0.6s ease-out;
+    pointer-events: none;
+}
+
+/* Button color shifts */
+.btn-send:hover:not(:disabled) {
+    background: var(--blue-hover);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.btn-reindex:hover {
+    background: var(--primary-dark);
+    box-shadow: 0 4px 12px var(--shadow);
+}
+
+/* Skeleton Loader */
+@keyframes shimmer {
+    0% {
+        background-position: -468px 0;
+    }
+    100% {
+        background-position: 468px 0;
+    }
+}
+
+.skeleton {
+    background: linear-gradient(
+        90deg,
+        var(--surface-light) 0px,
+        var(--accent) 40px,
+        var(--surface-light) 80px
+    );
+    background-size: 800px;
+    animation: shimmer 1.5s infinite linear;
+    border-radius: 0.75rem;
+}
+
+.skeleton-card {
+    height: 72px;
+    margin-bottom: 0.5rem;
+}

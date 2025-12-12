@@ -92,8 +92,11 @@ function setupEventListeners() {
         }
     });
 
-    // Send button
-    sendBtn.addEventListener('click', sendMessage);
+    // Send button with ripple effect
+    sendBtn.addEventListener('click', (e) => {
+        createRipple(e, sendBtn);
+        sendMessage();
+    });
 
     // Attach file button
     const attachBtn = document.getElementById('attachBtn');
@@ -157,6 +160,9 @@ async function handleFiles(files) {
 
 // Load Files
 async function loadFiles() {
+    // Show skeleton loaders while loading
+    showSkeletonLoaders();
+
     try {
         const response = await fetch(`${API_URL}/files`);
 
@@ -629,3 +635,33 @@ window.addEventListener('beforeunload', () => {
 window.addEventListener('pagehide', () => {
     navigator.sendBeacon('/clear-session');
 });
+
+// Ripple effect function
+function createRipple(event, element) {
+    const ripple = document.createElement('span');
+    ripple.classList.add('ripple');
+
+    const rect = element.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height);
+    const x = event.clientX - rect.left - size / 2;
+    const y = event.clientY - rect.top - size / 2;
+
+    ripple.style.width = ripple.style.height = size + 'px';
+    ripple.style.left = x + 'px';
+    ripple.style.top = y + 'px';
+
+    element.classList.add('ripple-container');
+    element.appendChild(ripple);
+
+    setTimeout(() => {
+        ripple.remove();
+    }, 600);
+}
+
+// Show skeleton loaders while loading
+function showSkeletonLoaders() {
+    const skeletons = Array(3).fill(0).map(() =>
+        '<div class="skeleton skeleton-card"></div>'
+    ).join('');
+    fileList.innerHTML = skeletons;
+}
